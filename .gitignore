@@ -1,0 +1,11 @@
+# Données réelles : ne jamais les publier (elles s’importent directement sur l’iPhone / l’iPad)
+Base_de_données/
+*.xlsx
+*.xls
+*.csv
+*.json
+!manifest.webmanifest
+# Fichiers temporaires Excel / système
+~$*
+.DS_Store
+Thumbs.db
