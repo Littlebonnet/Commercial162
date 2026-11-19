@@ -26,7 +26,7 @@ export const FIELDS = {
     { k: 'finContrat', label: 'Fin de contrat', syn: ['fin contrat', 'fin de contrat', 'echeance contrat', 'date fin'] },
     { k: 'statut', label: 'Statut (client/prospect)', syn: ['statut', 'status', 'prospect'] },
     { k: 'tags', label: 'Tags', syn: ['tags', 'tag', 'etiquettes', 'mots cles'] },
-    { k: 'moisFermes', label: 'Mois de fermeture (ex. 10-4 ou nov, déc)', syn: ['mois fermeture', 'fermeture annuelle', 'mois fermes', 'saison fermee'] },
+    { k: 'moisFermes', label: 'Mois de fermeture (ex. 10-4 ou nov, déc)', syn: ['mois de fermeture', 'mois fermeture', 'fermeture annuelle', 'mois fermes', 'saison fermee'] },
     { k: 'notes', label: 'Notes', syn: ['notes', 'note', 'commentaire', 'commentaires', 'remarques', 'observations'] },
     { k: 'lat', label: 'Latitude', syn: ['lat', 'latitude'] },
     { k: 'lng', label: 'Longitude', syn: ['lng', 'lon', 'long', 'longitude'] },
@@ -43,7 +43,7 @@ export const FIELDS = {
     { k: 'ht', label: 'Montant HT / CA', req: true, syn: ['ca', 'ca ht', 'montant', 'montant ht', 'total ht', 'chiffre affaires', 'chiffre d affaires', 'net ht', 'ht', 'vente ht', 'prix total'] },
     { k: 'pu', label: 'Prix unitaire HT', syn: ['pu', 'prix unitaire', 'pu ht', 'prix', 'prix vente'] },
     { k: 'marge', label: 'Marge (€)', syn: ['marge', 'marge brute', 'marge ht', 'mb'] },
-    { k: 'achat', label: 'Prix d\'achat / coût', syn: ['prix achat', 'cout', 'pa', 'cout revient', 'prix de revient', 'pr'] },
+    { k: 'achat', label: 'Prix d\'achat / coût', syn: ['prix achat', 'prix d achat', 'prix d achat ht', 'cout', 'pa', 'cout revient', 'prix de revient', 'pr'] },
   ],
   catalogue: [
     { k: 'ref', label: 'Référence', req: true, syn: ['ref', 'reference', 'code article', 'code', 'article', 'code produit', 'sku'] },
@@ -51,7 +51,7 @@ export const FIELDS = {
     { k: 'famille', label: 'Famille', syn: ['famille', 'categorie', 'rayon', 'gamme', 'univers', 'sous famille'] },
     { k: 'cond', label: 'Conditionnement', syn: ['cond', 'conditionnement', 'colisage', 'pcb', 'format', 'contenance', 'uv'] },
     { k: 'prix', label: 'Prix de vente HT', syn: ['prix', 'prix vente', 'pv', 'pv ht', 'tarif', 'prix ht', 'pu ht', 'prix unitaire'] },
-    { k: 'achat', label: 'Prix d\'achat HT', syn: ['prix achat', 'pa', 'cout', 'pa ht', 'prix de revient'] },
+    { k: 'achat', label: 'Prix d\'achat HT', syn: ['prix achat', 'prix d achat', 'prix d achat ht', 'pa', 'cout', 'pa ht', 'prix de revient'] },
     { k: 'ean', label: 'EAN / code-barres', syn: ['ean', 'gencod', 'code barre', 'code barres', 'ean13'] },
     { k: 'nouveaute', label: 'Nouveauté (oui/non)', syn: ['nouveaute', 'nouveau', 'new'] },
     { k: 'promo', label: 'Promo (oui/non)', syn: ['promo', 'promotion', 'offre'] },
@@ -84,7 +84,9 @@ export async function readFile(file) {
     }
     const headers = (all[best] || []).map(h => String(h).trim());
     const rows = all.slice(best + 1).filter(r => r.some(v => String(v).trim() !== ''));
-    return { name, headers, rows, headerRow: best };
+    // Score : nombre de colonnes reconnues (sert à ouvrir d'office le bon onglet, pas un « Lisez-moi »)
+    const score = rows.length ? Math.max(...Object.keys(FIELDS).map(k => scoreKind(k, headers))) : 0;
+    return { name, headers, rows, headerRow: best, score };
   });
   return { sheets };
 }
@@ -298,8 +300,8 @@ export async function geocoderTous(list, progress = () => { }) {
 // ---------- Modèle et export ----------
 export function downloadModele() {
   const wb = XLSX.utils.book_new();
-  const cl = [['N° client', 'Enseigne', 'Raison sociale', 'Type', 'Adresse', 'Code postal', 'Commune', 'Téléphone', 'Email', 'Contact', 'SIRET', 'Jour de livraison', 'Fréquence', 'Objectif mensuel', 'Fin de contrat', 'Statut', 'Tags', 'Notes'],
-    ['C0001', 'Le Chalet des Neiges', 'SARL Chalet', 'Restaurant', '120 route du Belvédère', '73550', 'Les Allues', '04 79 00 00 00', 'contact@exemple.fr', 'Marie Dupont', '12345678900011', 'mardi', 14, 1500, '2027-04-30', 'client', 'saisonnier, terrasse', 'Ouvert de décembre à avril']];
+  const cl = [['N° client', 'Enseigne', 'Raison sociale', 'Type', 'Adresse', 'Code postal', 'Commune', 'Téléphone', 'Email', 'Contact', 'SIRET', 'Jour de livraison', 'Fréquence', 'Objectif mensuel', 'Fin de contrat', 'Mois de fermeture', 'Statut', 'Tags', 'Notes'],
+    ['C0001', 'Le Chalet des Neiges', 'SARL Chalet', 'Restaurant', '120 route du Belvédère', '73550', 'Les Allues', '04 79 00 00 00', 'contact@exemple.fr', 'Marie Dupont', '12345678900011', 'mardi', 14, 1500, '2027-04-30', '5-11', 'client', 'saisonnier, terrasse', 'Ouvert de décembre à avril']];
   const ve = [['Date', 'N° client', 'Client', 'Référence', 'Désignation', 'Quantité', 'Montant HT', 'Marge'],
     ['15/11/2025', 'C0001', 'Le Chalet des Neiges', 'GL-VAN-25', 'Glace vanille bac 2,5 L', 6, 89.4, 31.2]];
   const ca = [['Référence', 'Désignation', 'Famille', 'Conditionnement', 'Prix de vente HT', 'Prix d\'achat HT', 'EAN', 'Nouveauté', 'Promo'],

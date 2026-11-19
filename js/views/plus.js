@@ -141,7 +141,7 @@ function importPage(main, ctx) {
 }
 
 function mappingStep(step, book, ctx) {
-  let sheet = book.sheets.find(s => s.rows.length > 1) || book.sheets[0];
+  let sheet = book.sheets.slice().sort((a, b) => b.score - a.score)[0];
   let kind = IO.detectKind(sheet.headers);
   let map = IO.autoMap(kind, sheet.headers);
   const draw = () => {
