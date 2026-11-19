@@ -1,0 +1,18 @@
+{
+  "name": "Tournée Alpagel",
+  "short_name": "Tournée",
+  "description": "Suivi commercial : clients, tournées optimisées, commandes et chiffres. Données stockées sur l'appareil.",
+  "lang": "fr",
+  "start_url": "./index.html#/accueil",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1B6DB5",
+  "theme_color": "#1B6DB5",
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
