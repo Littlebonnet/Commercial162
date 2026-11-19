@@ -25,6 +25,7 @@ export function render(main, ctx) {
     </div>
     <h3>Adresse</h3>
     <label class="field"><span>Adresse (tape puis choisis dans la liste)</span><input name="adresse" value="${esc(c.adresse || '')}" placeholder="12 rue de la Gare, Crolles"></label>
+    <label class="field"><span>Complément d'adresse</span><input name="adresse2" value="${esc(c.adresse2 || '')}" placeholder="Bâtiment, lieu-dit, nom de la station…"></label>
     <div class="grid g3">
       <label class="field"><span>Code postal</span><input name="cp" value="${esc(c.cp || '')}" inputmode="numeric"></label>
       <label class="field"><span>Commune</span><input name="ville" value="${esc(c.ville || '')}"></label>
@@ -36,6 +37,7 @@ export function render(main, ctx) {
       <label class="field"><span>Téléphone</span><input name="tel" type="tel" value="${esc(c.tel || '')}"></label>
       <label class="field"><span>Email</span><input name="email" type="email" value="${esc(c.email || '')}"></label>
       <label class="field"><span>N° client Alpagel</span><input name="numClient" value="${esc(c.numClient || '')}"></label>
+      <label class="field"><span>Code tournée</span><input name="tournee" value="${esc(c.tournee || '')}" placeholder="GC, TP…"></label>
       <label class="field"><span>SIRET</span><input name="siret" value="${esc(c.siret || '')}" inputmode="numeric"></label>
       <label class="field"><span>Jour de livraison</span><select name="jourLivraison"><option value=""></option>${JOURS.slice(1).concat(JOURS[0]).map(j => `<option ${c.jourLivraison === j ? 'selected' : ''}>${j}</option>`).join('')}</select></label>
       <label class="field"><span>Fin de contrat</span><input name="finContrat" type="date" value="${esc(c.finContrat || '')}"></label>
@@ -91,7 +93,7 @@ export function render(main, ctx) {
     e.preventDefault();
     const btn = $('button[type=submit]', form); btn.disabled = true; btn.textContent = 'Enregistrement…';
     try {
-      for (const n of ['enseigne', 'nom', 'typeEtab', 'adresse', 'cp', 'ville', 'zone', 'tel', 'email', 'numClient', 'siret', 'jourLivraison', 'finContrat', 'notes', 'prochainContact', 'depuis', 'etape']) {
+      for (const n of ['enseigne', 'nom', 'typeEtab', 'adresse', 'adresse2', 'cp', 'ville', 'zone', 'tel', 'email', 'numClient', 'tournee', 'siret', 'jourLivraison', 'finContrat', 'notes', 'prochainContact', 'depuis', 'etape']) {
         const v = f(n) ? f(n).value.trim() : '';
         c[n] = v || undefined;
       }

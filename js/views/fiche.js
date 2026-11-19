@@ -45,7 +45,7 @@ export async function render(main, ctx) {
           <span class="tag" style="background:${zoneColor(c.zone)};color:#fff">${esc(c.zone || '')}</span>${retardTag(c)}${c.archive ? '<span class="tag grey">archivé</span>' : ''}</div>
         <h2 class="fiche-title">${esc(c.enseigne || c.nom)}</h2>
         ${c.enseigne && c.nom && c.nom !== c.enseigne ? `<div class="muted">${esc(c.nom)}</div>` : ''}
-        <div>${esc(c.adresse || '')}${c.adresse ? ', ' : ''}${esc(c.cp || '')} ${esc(c.ville || '')}</div>
+        <div>${esc(c.adresse || '')}${c.adresse ? ', ' : ''}${c.adresse2 ? esc(c.adresse2) + ', ' : ''}${esc(c.cp || '')} ${esc(c.ville || '')}</div>
         <div class="tags-line">${(c.tags || []).map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>
       </div>
       ${isProspect ? `<div class="etape-box"><div class="muted small">Prospection</div><select data-etape>${ETAPES.map(e => `<option ${c.etape === e ? 'selected' : ''}>${e}</option>`).join('')}</select></div>` : ''}
@@ -77,6 +77,7 @@ export async function render(main, ctx) {
           ${row('Téléphone', c.tel ? `<a href="${telHref(c.tel)}">${esc(c.tel)}</a>` : '')}
           ${row('Email', c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '')}
           ${row('N° client', esc(c.numClient || ''))}
+          ${row('Code tournée', esc(c.tournee || ''))}
           ${row('SIRET', esc(c.siret || ''))}
           ${row('Livraison', esc(c.jourLivraison || ''))}
           ${row('Créneaux de visite', esc(creneauxTxt(creneaux(c).map(([a, b]) => [mm(a), mm(b)]))) + (c.creneaux && c.creneaux.length ? '' : ' <span class="muted small">(défaut du type)</span>'))}

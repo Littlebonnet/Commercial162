@@ -134,7 +134,7 @@ function editeur(main, ctx, id) {
     const pr = prixPour(ref, cmd.clientId);
     const qn = qteOf(ref);
     return `<div class="item prod ${qn ? 'in' : ''}" data-ref="${esc(ref)}">
-      <div class="main"><div class="t">${esc(designation || p?.designation || ref)} ${badge}</div><div class="s">${esc(ref)}${p?.cond ? ' · ' + esc(p.cond) : ''} · ${eur(pr.pu, true)}${sub ? ' · ' + sub : ''}</div></div>
+      <div class="main"><div class="t">${esc(designation || p?.designation || ref)} ${badge}</div><div class="s">${esc(ref)}${p?.cond ? ' · ' + esc(p.cond) : ''} · ${pr.pu ? eur(pr.pu, true) : 'prix à saisir'}${p?.stock != null ? ' · stock ' + num(p.stock) : ''}${sub ? ' · ' + sub : ''}</div>${p?.infos ? `<div class="s">${esc(p.infos)}</div>` : ''}</div>
       <div class="qty"><button data-m="${esc(ref)}" aria-label="Moins">−</button><input type="number" inputmode="decimal" min="0" value="${qn || ''}" placeholder="0" data-qi="${esc(ref)}"><button data-p="${esc(ref)}" aria-label="Plus">+</button></div></div>`;
   };
   const syncProdRow = ref => {
@@ -151,7 +151,7 @@ function editeur(main, ctx, id) {
         : '<div class="empty">Pas encore d\'historique pour ce client : utilise le catalogue.</div>';
     } else if (onglet === 'catalogue') {
       const words = norm(q).split(/\s+/).filter(Boolean);
-      const res = (words.length ? S.produits.filter(p => p.actif !== false && words.every(w => norm(p.ref + ' ' + p.designation + ' ' + (p.famille || '') + ' ' + (p.ean || '')).includes(w))) : S.produits.filter(p => p.actif !== false))
+      const res = (words.length ? S.produits.filter(p => p.actif !== false && words.every(w => norm(p.ref + ' ' + p.designation + ' ' + (p.famille || '') + ' ' + (p.ean || '') + ' ' + (p.infos || '') + ' ' + (p.marque || '')).includes(w))) : S.produits.filter(p => p.actif !== false))
         .slice(0, 80);
       html = res.length ? res.map(p => prodRow(p.ref, p.designation, esc(p.famille || ''), p.nouveaute ? '<span class="tag green">nouveau</span>' : p.promo ? '<span class="tag red">promo</span>' : '')).join('')
         : `<div class="empty">${S.produits.length ? 'Aucun produit trouvé' : 'Catalogue vide : importe-le dans Plus → Import'}</div>`;

@@ -96,10 +96,10 @@ function catalogue(main, ctx) {
   const draw = () => {
     const words = norm(catF.q).split(/\s+/).filter(Boolean);
     const rows = S.produits.filter(p => (!catF.fam || p.famille === catF.fam) && (!catF.flag || (catF.flag === 'inactif' ? p.actif === false : p[catF.flag]))
-      && (!words.length || words.every(w => norm(p.ref + ' ' + p.designation + ' ' + (p.famille || '') + ' ' + (p.ean || '')).includes(w))))
+      && (!words.length || words.every(w => norm(p.ref + ' ' + p.designation + ' ' + (p.famille || '') + ' ' + (p.ean || '') + ' ' + (p.infos || '') + ' ' + (p.marque || '')).includes(w))))
       .sort((a, b) => (a.famille || '').localeCompare(b.famille || '') || a.designation.localeCompare(b.designation));
     $('[data-l]', main).innerHTML = rows.slice(0, 200).map(p => `<div class="item" data-ref="${esc(p.ref)}"><div class="main"><div class="t">${esc(p.designation)} ${p.nouveaute ? '<span class="tag green">nouveau</span>' : ''}${p.promo ? '<span class="tag red">promo</span>' : ''}${p.actif === false ? '<span class="tag grey">inactif</span>' : ''}</div>
-      <div class="s">${esc(p.ref)} · ${esc(p.famille || '')}${p.cond ? ' · ' + esc(p.cond) : ''}</div></div><div class="end"><b>${eur(p.prix, true)}</b>${p.achat != null && p.prix ? `<div class="muted small">marge ${pct((p.prix - p.achat) / p.prix * 100)}</div>` : ''}</div></div>`).join('')
+      <div class="s">${esc(p.ref)} · ${esc(p.famille || '')}${p.cond ? ' · ' + esc(p.cond) : ''}${p.marque ? ' · ' + esc(p.marque) : ''}</div>${p.infos ? `<div class="s">${esc(p.infos)}</div>` : ''}</div><div class="end">${p.prix ? `<b>${eur(p.prix, true)}</b>` : '<span class="muted small">prix à saisir</span>'}${p.stock != null ? `<div class="muted small">stock ${num(p.stock)}</div>` : ''}${p.achat != null && p.prix ? `<div class="muted small">marge ${pct((p.prix - p.achat) / p.prix * 100)}</div>` : ''}</div></div>`).join('')
       + (rows.length > 200 ? `<div class="empty">… ${rows.length - 200} autres : affine la recherche</div>` : '') || '<div class="empty">Aucun produit. Importe ton catalogue (Excel/CSV) ou ajoute-les un par un.</div>';
   };
   $('[data-q]', main).oninput = debounce(e => { catF.q = e.target.value; draw(); }, 120);

@@ -84,13 +84,46 @@ const ALIAS = {
   'saint-pierre-d\'allevard': 'Crêts en Belledonne', 'st pierre d allevard': 'Crêts en Belledonne', 'moretel-de-mailles': 'Crêts en Belledonne',
   'saint-hilaire': 'Plateau-des-Petites-Roches', 'saint-hilaire-du-touvet': 'Plateau-des-Petites-Roches', 'saint-bernard': 'Plateau-des-Petites-Roches', 'saint-pancrasse': 'Plateau-des-Petites-Roches',
   'les marches': 'Porte-de-Savoie', 'francin': 'Porte-de-Savoie', 'montbonnot': 'Montbonnot-Saint-Martin', 'brignoud': 'Villard-Bonnot', 'lancey': 'Villard-Bonnot',
-  'le collet d\'allevard': 'Allevard', 'le collet': 'Allevard',
+  'le collet d\'allevard': 'Allevard', 'le collet': 'Allevard', 'collet d\'allevard': 'Allevard', 'allevard les bains': 'Allevard',
+  'haut breda': 'Le Haut-Bréda', 'pleynet': 'Le Haut-Bréda', 'la ferriere d\'allevard': 'Le Haut-Bréda', 'les sept laux': 'Le Haut-Bréda',
+  'moretel de maille': 'Crêts en Belledonne', 'moretel': 'Crêts en Belledonne',
+  'la terasse': 'La Terrasse', 'saint helene du lac': 'Sainte-Hélène-du-Lac', 'champ pres froges': 'Le Champ-près-Froges',
 };
-const keyC = s => norm(s).replace(/[-']/g, ' ').replace(/\bst\b/g, 'saint').replace(/\bste\b/g, 'sainte').replace(/\s+/g, ' ');
+// Clé de comparaison : sans accents, tirets, chiffres (« MERIBEL 1600 »), articles en double espaces…
+const keyC = s => norm(s).replace(/[-'’]/g, ' ').replace(/\d+/g, ' ').replace(/\bst\b/g, 'saint').replace(/\bste\b/g, 'sainte').replace(/\s+/g, ' ').trim();
 const CMAP = new Map(COMMUNES.map(c => [keyC(c.nom), c]));
 for (const [a, n] of Object.entries(ALIAS)) CMAP.set(keyC(a), CMAP.get(keyC(n)));
-export const findCommune = ville => CMAP.get(keyC(ville)) || null;
-export function zoneOf(ville) { const c = findCommune(ville); return c ? c.zone : 'Grenoble & loin'; }
+function lev(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const cacheC = new Map();
+export function findCommune(ville) {
+  const k = keyC(ville);
+  if (!k) return null;
+  if (cacheC.has(k)) return cacheC.get(k);
+  let c = CMAP.get(k) || null;
+  // Méribel, Mottaret, Méribel-Village, Altiport… → Les Allues
+  if (!c && /^meribel\b|\bmottaret\b|\ballues\b/.test(k)) c = CMAP.get('les allues');
+  // Sans l'article (« COLLET D ALLEVARD » / « LE COLLET D ALLEVARD »), puis faute de frappe légère
+  if (!c) { const sa = k.replace(/^(le|la|les|l) /, ''); for (const [kk, v] of CMAP) if (kk.replace(/^(le|la|les|l) /, '') === sa) { c = v; break; } }
+  if (!c && k.length >= 6) { let best = 3; for (const [kk, v] of CMAP) { const d = lev(k, kk); if (d < best) { best = d; c = v; } } }
+  cacheC.set(k, c);
+  return c;
+}
+// Commune connue la plus proche (pour une commune hors liste, ex. Apremont ou Myans)
+export function nearestCommune(lat, lng, maxKm = 20) {
+  let best = null, bd = Infinity;
+  for (const c of COMMUNES) { const d = Math.hypot((c.lat - lat) * 111, (c.lng - lng) * 78); if (d < bd) { bd = d; best = c; } }
+  return bd <= maxKm ? best : null;
+}
+export function zoneOf(ville, lat, lng) {
+  const c = findCommune(ville) || (lat != null ? nearestCommune(lat, lng) : null);
+  return c ? c.zone : 'Grenoble & loin';
+}
 export const zoneColor = z => (ZONES[z] || { color: '#7A7A7A' }).color;
 
 export const ETAPES = ['À contacter', 'RDV pris', 'Devis envoyé', 'Gagné', 'Perdu'];

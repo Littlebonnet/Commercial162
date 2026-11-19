@@ -14,6 +14,8 @@ export const FIELDS = {
     { k: 'numClient', label: 'N° client', syn: ['n client', 'no client', 'num client', 'numero client', 'code client', 'code', 'id client', 'compte', 'ref client', 'n° client'] },
     { k: 'typeEtab', label: 'Type d\'établissement', syn: ['type', 'type etablissement', 'categorie', 'activite', 'segment', 'famille client', 'canal'] },
     { k: 'adresse', label: 'Adresse', syn: ['adresse', 'adresse 1', 'adresse1', 'rue', 'voie', 'adresse livraison'] },
+    { k: 'adresse2', label: 'Complément d\'adresse', syn: ['adresse 3', 'complement adresse', 'complement d adresse', 'complement', 'adresse complementaire', 'lieu dit'] },
+    { k: 'tournee', label: 'Code tournée', syn: ['tournee', 'code tournee', 'n tournee', 'secteur', 'circuit'] },
     { k: 'cp', label: 'Code postal', syn: ['cp', 'code postal', 'postal', 'zip'] },
     { k: 'ville', label: 'Commune', syn: ['ville', 'commune', 'localite', 'city'] },
     { k: 'tel', label: 'Téléphone', syn: ['tel', 'telephone', 'tel fixe', 'phone', 'portable', 'mobile', 'gsm'] },
@@ -48,7 +50,10 @@ export const FIELDS = {
   catalogue: [
     { k: 'ref', label: 'Référence', req: true, syn: ['ref', 'reference', 'code article', 'code', 'article', 'code produit', 'sku'] },
     { k: 'designation', label: 'Désignation', req: true, syn: ['designation', 'libelle', 'produit', 'description', 'nom', 'libelle article'] },
-    { k: 'famille', label: 'Famille', syn: ['famille', 'categorie', 'rayon', 'gamme', 'univers', 'sous famille'] },
+    { k: 'famille', label: 'Famille', syn: ['famille', 'categorie', 'rayon', 'gamme', 'univers', 'sous famille', 'type d article', 'type article', 'type produit'] },
+    { k: 'infos', label: 'Désignation secondaire', syn: ['designation secondaire', 'designation 2', 'libelle 2', 'libelle secondaire', 'description courte'] },
+    { k: 'marque', label: 'Marque', syn: ['marque', 'fabricant', 'fournisseur'] },
+    { k: 'stock', label: 'Stock', syn: ['stock reel', 'stock', 'stock disponible', 'qte stock'] },
     { k: 'cond', label: 'Conditionnement', syn: ['cond', 'conditionnement', 'colisage', 'pcb', 'format', 'contenance', 'uv'] },
     { k: 'prix', label: 'Prix de vente HT', syn: ['prix', 'prix vente', 'pv', 'pv ht', 'tarif', 'prix ht', 'pu ht', 'prix unitaire'] },
     { k: 'achat', label: 'Prix d\'achat HT', syn: ['prix achat', 'prix d achat', 'prix d achat ht', 'pa', 'cout', 'pa ht', 'prix de revient'] },
@@ -96,7 +101,8 @@ function matchField(fd, header) {
   if (!h) return 0;
   for (const s of fd.syn) if (h === nh(s)) return 3;
   for (const s of fd.syn) { const n = nh(s); if (n.length >= 3 && (h.startsWith(n + ' ') || h.endsWith(' ' + n))) return 2; }
-  for (const s of fd.syn) { const n = nh(s); if (n.length >= 4 && h.includes(n)) return 1; }
+  // Mot entier seulement (« secondaire » ne doit pas être pris pour « cond »)
+  for (const s of fd.syn) { const n = nh(s); if (n.length >= 4 && (' ' + h + ' ').includes(' ' + n + ' ')) return 1; }
   return 0;
 }
 function scoreKind(kind, headers) {
@@ -173,6 +179,22 @@ export function parseMois(v) {
   }
   return [...out].filter(n => n >= 1 && n <= 12).sort((a, b) => a - b);
 }
+// Codes famille des exports Alpagel → libellés lisibles (le code reste visible)
+const FAMILLES = { GLA: 'Glaces (GLA)', SNG: 'Surgelés (SNG)', SSG: 'Surgelés (SSG)', FRA: 'Produits frais (FRA)', EPI: 'Épicerie (EPI)', PUB: 'Publicité / PLV (PUB)', MEU: 'Meubles / matériel (MEU)', AUT: 'Autres (AUT)' };
+// « LA FARANDOLE » → « La Farandole » (uniquement si tout est en majuscules)
+const PETITS = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'en', 'au', 'aux', 'sur', 'a', 'à', 'd', 'l']);
+export function joli(s) {
+  s = String(s || '').trim();
+  if (!s || s !== s.toUpperCase() || !/[A-Z]/.test(s)) return s;
+  return s.toLowerCase().replace(/[\p{L}\d]+/gu, (w, i) => (i > 0 && PETITS.has(w)) ? w : w[0].toUpperCase() + w.slice(1))
+    .replace(/\b(Sarl|Sas|Sasu|Eurl|Snc|Sci)\b/g, x => x.toUpperCase());
+}
+// « 0476522298 » → « 04 76 52 22 98 »
+export function telFr(t) {
+  const d = String(t).replace(/\D/g, '');
+  const n = d.length === 9 ? '0' + d : d.startsWith('33') && d.length === 11 ? '0' + d.slice(2) : d;
+  return n.length === 10 ? n.replace(/(\d\d)(?=\d)/g, '$1 ') : String(t).trim();
+}
 const yes = v => /^(1|o|oui|x|y|yes|vrai|true)$/i.test(String(v ?? '').trim());
 const str = v => (v instanceof Date ? iso(v) : String(v ?? '')).trim();
 
@@ -184,8 +206,16 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
     const ex = new Map(S.produits.map(p => [p.ref, p]));
     for (const r of rows) {
       const ref = str(get(r, 'ref')); if (!ref) continue;
-      const p = { ...(ex.get(ref) || {}), ref, designation: str(get(r, 'designation')) || ref };
-      for (const k of ['famille', 'cond', 'ean']) { const v = str(get(r, k)); if (v) p[k] = v; }
+      let des = str(get(r, 'designation')) || ref;
+      const p = { ...(ex.get(ref) || {}), ref };
+      // « SAUCE BEARNAISE        6X1K » : le conditionnement en fin de libellé, après de grands espaces
+      const mc = des.match(/^(.*\S)\s{3,}(\S+)$/);
+      if (mc && map.cond == null) { des = mc[1]; p.cond = mc[2]; }
+      p.designation = des.replace(/\s+/g, ' ');
+      for (const k of ['famille', 'cond', 'ean', 'marque']) { const v = str(get(r, k)); if (v) p[k] = v; }
+      if (p.famille) p.famille = FAMILLES[p.famille.toUpperCase()] || p.famille;
+      const inf = str(get(r, 'infos')).replace(/\s+/g, ' '); if (inf) p.infos = inf;
+      const stock = toNum(get(r, 'stock')); if (map.stock != null) p.stock = stock;
       const prix = toNum(get(r, 'prix')); if (prix != null) p.prix = prix;
       const achat = toNum(get(r, 'achat')); if (achat != null) p.achat = achat;
       if (map.nouveaute != null) p.nouveaute = yes(get(r, 'nouveaute'));
@@ -207,11 +237,18 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
       const num = str(get(r, 'numClient')), ville = str(get(r, 'ville'));
       let c = (num && byNum.get(norm(num))) || byName.get(norm(ens) + '|' + norm(ville));
       const isNew = !c;
-      c = c ? { ...c } : { id: uid(), contacts: [], tags: [], materiel: [], creneaux: [], fermeture: [], depuis: today(), statut: 'client', importe: today() };
+      // « Client depuis » vient de la première vente importée (sinon tous compteraient comme nouveaux ce mois-ci)
+      c = c ? { ...c } : { id: uid(), contacts: [], tags: [], materiel: [], creneaux: [], fermeture: [], statut: 'client', importe: today() };
       if (isNew) nNew++;
-      c.enseigne = ens;
-      for (const k of ['nom', 'numClient', 'adresse', 'cp', 'ville', 'tel', 'email', 'siret', 'jourLivraison', 'notes']) { const v = str(get(r, k)); if (v) c[k] = v; }
+      c.enseigne = joli(ens);
+      for (const k of ['nom', 'numClient', 'adresse', 'adresse2', 'cp', 'ville', 'tel', 'email', 'siret', 'jourLivraison', 'notes']) { const v = str(get(r, k)).replace(/\s+/g, ' '); if (v) c[k] = v; }
+      for (const k of ['nom', 'adresse', 'adresse2']) if (c[k]) c[k] = joli(c[k]);
+      // Adresse principale vide mais complément rempli : on les échange
+      if (!c.adresse && c.adresse2) { c.adresse = c.adresse2; delete c.adresse2; }
+      if (c.tel) c.tel = telFr(c.tel);
       if (c.cp && /^\d{4}$/.test(c.cp)) c.cp = '0' + c.cp;
+      const tr = str(get(r, 'tournee')).toUpperCase();
+      if (tr) { if (c.tournee && c.tournee !== tr) c.tags = (c.tags || []).filter(t => t !== 'Tournée ' + c.tournee); c.tournee = tr; c.tags = [...new Set([...(c.tags || []), 'Tournée ' + tr])]; }
       const t = str(get(r, 'typeEtab')); if (t) c.typeEtab = typeOf(t); else if (!c.typeEtab) c.typeEtab = typeOf(ens);
       const st = norm(get(r, 'statut')); if (st) c.statut = st.startsWith('prosp') ? 'prospect' : 'client';
       if (c.statut === 'prospect' && !c.etape) c.etape = 'À contacter';
@@ -231,7 +268,19 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
     await bulkPut('clients', out);
     let geo = 0;
     if (opts.geocode) geo = await geocoderTous(out.filter(c => c.lat == null), (i, n) => progress(`Géolocalisation ${i} / ${n}…`));
-    return `${out.length} fiches importées (${nNew} nouvelles, ${out.length - nNew} mises à jour)${opts.geocode ? `, ${geo} géolocalisées` : ''}.`;
+    // Zone des communes hors liste : celle de la majorité des clients du même code tournée, sinon la commune la plus proche
+    const parCode = new Map();
+    for (const c of out) if (c.tournee && findCommune(c.ville)) { const m = parCode.get(c.tournee) || {}; m[c.zone] = (m[c.zone] || 0) + 1; parCode.set(c.tournee, m); }
+    const fix = [];
+    for (const c of out) {
+      if (findCommune(c.ville)) continue;
+      const m = parCode.get(c.tournee);
+      const z = m ? Object.entries(m).sort((a, b) => b[1] - a[1])[0][0] : zoneOf(c.ville, c.lat, c.lng);
+      if (z !== c.zone) { c.zone = z; fix.push(c); }
+    }
+    if (fix.length) await bulkPut('clients', fix);
+    const sansGeo = out.filter(c => c.lat == null).length;
+    return `${out.length} fiches importées (${nNew} nouvelles, ${out.length - nNew} mises à jour)${opts.geocode ? `, ${geo} géolocalisées` : ''}${sansGeo ? `, ${sansGeo} sans position (adresse à compléter)` : ''}.`;
   }
 
   // Ventes
@@ -285,10 +334,24 @@ export async function geocoderTous(list, progress = () => { }) {
     while (todo.length) {
       const c = todo.shift();
       let g = null;
-      try { if (navigator.onLine && (c.adresse || c.ville)) g = await geocode([c.adresse, c.cp, c.ville].filter(Boolean).join(' '), c.cp); } catch (e) { }
+      // On essaie l'adresse puis le complément (souvent l'un des deux porte le n° et la rue), on garde le meilleur
       const cm = findCommune(c.ville);
+      const villeQ = cm ? cm.nom : c.ville;
+      for (const a of [c.adresse, c.adresse2].filter(Boolean).concat((c.adresse || c.adresse2) ? [] : [''])) {
+        try {
+          if (!navigator.onLine) break;
+          const r = await geocode([a, c.cp, villeQ].filter(Boolean).join(' '), c.cp);
+          if (r && (!g || r.score > g.score)) g = r;
+        } catch (e) { }
+        if (g && g.score > 0.7) break;
+      }
+      // Commune hors liste et adresse introuvable : au moins le centre de la commune (ex. une aire d'autoroute)
+      if ((!g || g.score <= 0.45) && !cm && c.ville && navigator.onLine) {
+        try { const r = await geocode(`${c.cp || ''} ${c.ville}`.trim(), c.cp); if (r) { r.score = Math.max(r.score, 0.46); g = r; c.geoApprox = true; } } catch (e) { }
+      }
       if (g && g.score > 0.45) { c.lat = g.lat; c.lng = g.lng; ok++; }
       else if (cm) { c.lat = cm.lat + (Math.random() - .5) * .006; c.lng = cm.lng + (Math.random() - .5) * .006; c.geoApprox = true; ok++; }
+      if (!cm && c.lat != null) c.zone = zoneOf(c.ville, c.lat, c.lng);
       if (c.lat != null) await put('clients', c);
       progress(++i, list.length);
     }
