@@ -2,7 +2,7 @@
 // - fichiers de l'app et bibliothèques : servis depuis le cache, mis à jour en arrière-plan
 // - tuiles de carte OpenStreetMap : mises en cache au fil de l'eau (limite 3000)
 // - API Adresse / OSRM : toujours en direct (l'app a un repli hors ligne)
-const VERSION = 'v1.0.2';
+const VERSION = 'v1.1.0';
 const APP = 'app-' + VERSION;
 const TILES = 'tiles-v1';
 const CDN = [
@@ -17,7 +17,7 @@ const LOCAL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/db.js', 'js/util.js', 'js/ref.js', 'js/metrics.js', 'js/route.js', 'js/pdf.js', 'js/ui.js', 'js/io.js', 'js/demo.js',
   'js/views/accueil.js', 'js/views/tournee.js', 'js/views/clients.js', 'js/views/fiche.js', 'js/views/clientForm.js',
-  'js/views/commandes.js', 'js/views/stats.js', 'js/views/plus.js',
+  'js/views/stats.js', 'js/views/plus.js', 'js/icons.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

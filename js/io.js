@@ -29,6 +29,9 @@ export const FIELDS = {
     { k: 'statut', label: 'Statut (client/prospect)', syn: ['statut', 'status', 'prospect'] },
     { k: 'tags', label: 'Tags', syn: ['tags', 'tag', 'etiquettes', 'mots cles'] },
     { k: 'moisFermes', label: 'Mois de fermeture (ex. 10-4 ou nov, déc)', syn: ['mois de fermeture', 'mois fermeture', 'fermeture annuelle', 'mois fermes', 'saison fermee'] },
+    { k: 'situation', label: 'Situation (RAS, RJ…)', syn: ['situation', 'etat', 'situation juridique', 'statut juridique', 'procedure'] },
+    { k: 'jourVisite', label: 'Jour de visite', syn: ['jour visite', 'jour de visite', 'jour passage', 'jour de passage'] },
+    { k: 'jourAppel', label: 'Jour d\'appel télévente', syn: ['jour appel', 'jour d appel', 'televente', 'jour televente', 'jour de televente', 'appel televente'] },
     { k: 'notes', label: 'Notes', syn: ['notes', 'note', 'commentaire', 'commentaires', 'remarques', 'observations'] },
     { k: 'lat', label: 'Latitude', syn: ['lat', 'latitude'] },
     { k: 'lng', label: 'Longitude', syn: ['lng', 'lon', 'long', 'longitude'] },
@@ -195,6 +198,29 @@ export function telFr(t) {
   const n = d.length === 9 ? '0' + d : d.startsWith('33') && d.length === 11 ? '0' + d.slice(2) : d;
   return n.length === 10 ? n.replace(/(\d\d)(?=\d)/g, '$1 ') : String(t).trim();
 }
+// « mardi », « MAR », « 2 » → 2 (lundi = 1)
+export function parseJour(v) {
+  const n = norm(v).replace(/\./g, '').trim();
+  if (!n) return null;
+  if (/^[1-6]$/.test(n)) return +n;
+  const J = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  const i = J.indexOf(n.slice(0, 3));
+  return i >= 0 ? i + 1 : null;
+}
+// « RJ », « redressement », « liquidation »… → situation connue
+export function parseSituation(v) {
+  const n = norm(v);
+  if (!n) return null;
+  if (/^ras$|^ok$|^normal/.test(n)) return 'RAS';
+  if (/\brj\b|redress/.test(n)) return 'Redressement judiciaire';
+  if (/\blj\b|liquid/.test(n)) return 'Liquidation judiciaire';
+  if (/sauvegarde/.test(n)) return 'Procédure de sauvegarde';
+  if (/bloq/.test(n)) return 'Compte bloqué';
+  if (/ferme|cess/.test(n)) return 'Fermé définitivement';
+  if (/vente|gerant|repris/.test(n)) return 'En vente / changement de gérant';
+  if (/paie|impay|retard/.test(n)) return 'Paiement à surveiller';
+  return null;
+}
 const yes = v => /^(1|o|oui|x|y|yes|vrai|true)$/i.test(String(v ?? '').trim());
 const str = v => (v instanceof Date ? iso(v) : String(v ?? '')).trim();
 
@@ -255,6 +281,9 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
       for (const k of ['frequence', 'objectifMensuel']) { const v = toNum(get(r, k)); if (v != null) c[k] = v; }
       const fc = toDate(get(r, 'finContrat')); if (fc) c.finContrat = fc;
       const mf = parseMois(get(r, 'moisFermes')); if (mf.length) c.moisFermes = mf;
+      const sit = parseSituation(get(r, 'situation')); if (sit) c.situation = sit === 'RAS' ? undefined : sit;
+      const jv = parseJour(get(r, 'jourVisite')); if (jv) c.jourVisite = jv;
+      const ja = parseJour(get(r, 'jourAppel')); if (ja) c.jourAppel = ja;
       const tg = str(get(r, 'tags')); if (tg) c.tags = [...new Set([...(c.tags || []), ...tg.split(/[,;|]/).map(s => s.trim()).filter(Boolean)])];
       const ct = str(get(r, 'contact'));
       if (ct && !(c.contacts || []).some(k => norm(k.nom) === norm(ct))) c.contacts = [...(c.contacts || []), { nom: ct, tel: str(get(r, 'tel')), email: str(get(r, 'email')) }];
@@ -363,8 +392,8 @@ export async function geocoderTous(list, progress = () => { }) {
 // ---------- Modèle et export ----------
 export function downloadModele() {
   const wb = XLSX.utils.book_new();
-  const cl = [['N° client', 'Enseigne', 'Raison sociale', 'Type', 'Adresse', 'Code postal', 'Commune', 'Téléphone', 'Email', 'Contact', 'SIRET', 'Jour de livraison', 'Fréquence', 'Objectif mensuel', 'Fin de contrat', 'Mois de fermeture', 'Statut', 'Tags', 'Notes'],
-    ['C0001', 'Le Chalet des Neiges', 'SARL Chalet', 'Restaurant', '120 route du Belvédère', '73550', 'Les Allues', '04 79 00 00 00', 'contact@exemple.fr', 'Marie Dupont', '12345678900011', 'mardi', 14, 1500, '2027-04-30', '5-11', 'client', 'saisonnier, terrasse', 'Ouvert de décembre à avril']];
+  const cl = [['N° client', 'Enseigne', 'Raison sociale', 'Type', 'Adresse', 'Code postal', 'Commune', 'Téléphone', 'Email', 'Contact', 'SIRET', 'Jour de livraison', 'Jour de visite', 'Jour d\'appel télévente', 'Fréquence', 'Objectif mensuel', 'Fin de contrat', 'Mois de fermeture', 'Situation', 'Statut', 'Tags', 'Notes'],
+    ['C0001', 'Le Chalet des Neiges', 'SARL Chalet', 'Restaurant', '120 route du Belvédère', '73550', 'Les Allues', '04 79 00 00 00', 'contact@exemple.fr', 'Marie Dupont', '12345678900011', 'mardi', 'lundi', 'jeudi', 14, 1500, '2027-04-30', '5-11', 'RAS', 'client', 'saisonnier, terrasse', 'Ouvert de décembre à avril']];
   const ve = [['Date', 'N° client', 'Client', 'Référence', 'Désignation', 'Quantité', 'Montant HT', 'Marge'],
     ['15/11/2025', 'C0001', 'Le Chalet des Neiges', 'GL-VAN-25', 'Glace vanille bac 2,5 L', 6, 89.4, 31.2]];
   const ca = [['Référence', 'Désignation', 'Famille', 'Conditionnement', 'Prix de vente HT', 'Prix d\'achat HT', 'EAN', 'Nouveauté', 'Promo'],
@@ -377,11 +406,10 @@ export function exportExcel() {
   const wb = XLSX.utils.book_new();
   const cName = new Map(S.clients.map(c => [c.id, c.enseigne || c.nom]));
   const add = (name, rows) => { const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]); XLSX.utils.book_append_sheet(wb, ws, name); };
-  add('Clients', S.clients.map(c => ({ 'N° client': c.numClient || '', Enseigne: c.enseigne || '', 'Raison sociale': c.nom || '', Statut: c.statut, Étape: c.etape || '', Type: c.typeEtab || '', Zone: c.zone || '', Adresse: c.adresse || '', 'Code postal': c.cp || '', Commune: c.ville || '', Téléphone: c.tel || '', Email: c.email || '', SIRET: c.siret || '', 'Jour de livraison': c.jourLivraison || '', Fréquence: c.frequence || '', 'Objectif mensuel': c.objectifMensuel || '', 'Fin de contrat': c.finContrat || '', 'Client depuis': c.depuis || '', Tags: (c.tags || []).join(', '), Notes: c.notes || '', Latitude: c.lat ?? '', Longitude: c.lng ?? '', Archivé: c.archive ? 'oui' : '' })));
+  add('Clients', S.clients.map(c => ({ 'N° client': c.numClient || '', Enseigne: c.enseigne || '', 'Raison sociale': c.nom || '', Statut: c.statut, Étape: c.etape || '', Type: c.typeEtab || '', Zone: c.zone || '', Adresse: c.adresse || '', 'Code postal': c.cp || '', Commune: c.ville || '', Téléphone: c.tel || '', Email: c.email || '', SIRET: c.siret || '', 'Jour de livraison': c.jourLivraison || '', 'Jour de visite': c.jourVisite ? ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][c.jourVisite] : '', 'Jour d\'appel télévente': c.jourAppel ? ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][c.jourAppel] : '', Situation: c.situation || 'RAS', Fréquence: c.frequence || '', 'Objectif mensuel': c.objectifMensuel || '', 'Fin de contrat': c.finContrat || '', 'Client depuis': c.depuis || '', Tags: (c.tags || []).join(', '), Notes: c.notes || '', Latitude: c.lat ?? '', Longitude: c.lng ?? '', Archivé: c.archive ? 'oui' : '' })));
   add('Contacts', S.clients.flatMap(c => (c.contacts || []).map(k => ({ Client: cName.get(c.id), Nom: k.nom, Fonction: k.role || '', Téléphone: k.tel || '', Email: k.email || '' }))));
   add('Matériel', S.clients.flatMap(c => (c.materiel || []).map(m => ({ Client: cName.get(c.id), Matériel: m.designation, 'N° de série': m.serie || '', Date: m.date || '', Note: m.note || '' }))));
   add('Visites', S.visites.slice().sort((a, b) => a.date.localeCompare(b.date)).map(v => ({ Date: v.date, Heure: v.heure || '', Client: cName.get(v.clientId) || '', Résultat: v.resultat || '', Note: v.note || '' })));
-  add('Commandes', S.commandes.flatMap(c => c.lignes.map(l => ({ 'N° commande': c.numero, Date: c.date, Livraison: c.livraison || '', Client: cName.get(c.clientId) || '', Statut: c.statut, Référence: l.ref, Désignation: l.designation, Quantité: l.qte, 'PU HT': l.pu, 'Total HT': Math.round(l.qte * l.pu * 100) / 100 }))));
   add('Ventes', S.ventes.map(l => ({ Date: l.date, Client: cName.get(l.clientId) || '', 'N° client': S.clients.find(c => c.id === l.clientId)?.numClient || '', Référence: l.ref, Désignation: l.designation, Quantité: l.qte, 'Montant HT': l.ht, Marge: l.marge, Source: l.source || '' })));
   add('Catalogue', S.produits.map(p => ({ Référence: p.ref, Désignation: p.designation, Famille: p.famille || '', Conditionnement: p.cond || '', 'Prix de vente HT': p.prix ?? '', 'Prix d\'achat HT': p.achat ?? '', EAN: p.ean || '', Nouveauté: p.nouveaute ? 'oui' : '', Promo: p.promo ? 'oui' : '', Actif: p.actif === false ? 'non' : 'oui' })));
   add('Rappels', S.rappels.map(r => ({ Date: r.date, Client: cName.get(r.clientId) || '', Objet: r.texte || '', Fait: r.fait ? 'oui' : '' })));

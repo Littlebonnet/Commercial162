@@ -3,12 +3,12 @@ import { loadAll } from './db.js';
 import { cfg } from './ref.js';
 import { $, $$, esc, toast } from './util.js';
 import { applyTheme } from './ui.js';
+import { ic, LOGO } from './icons.js';
 import * as accueil from './views/accueil.js';
 import * as tournee from './views/tournee.js';
 import * as clientsV from './views/clients.js';
 import * as fiche from './views/fiche.js';
 import * as clientForm from './views/clientForm.js';
-import * as commandes from './views/commandes.js';
 import * as stats from './views/stats.js';
 import * as plus from './views/plus.js';
 
@@ -20,12 +20,15 @@ const ROUTES = [
   [/^clients\/nouveau$/, clientForm, 'clients', true],
   [/^clients\/([\w-]+)\/modifier$/, clientForm, 'clients', true],
   [/^clients\/([\w-]+)$/, fiche, 'clients', true],
-  [/^commandes(?:\/([\w-]+))?$/, commandes, 'commandes'],
   [/^stats$/, stats, 'stats'],
   [/^plus(?:\/([\w-]+))?$/, plus, 'plus'],
 ];
 
 const main = $('#main');
+// Logo, icônes de la barre d'onglets et du bouton retour
+$('#brand-slot').innerHTML = LOGO;
+$('#btn-back').innerHTML = ic('back', 26);
+for (const a of $$('#tabbar a')) a.insertAdjacentHTML('afterbegin', ic(a.dataset.ic, 24));
 let cleanup = [];
 let current = null;
 const scrollMem = new Map();
@@ -68,7 +71,7 @@ async function route(keepScroll = false) {
       const box = $('#top-actions'); box.innerHTML = '';
       for (const b of btns) {
         const el = document.createElement(b.href ? 'a' : 'button');
-        el.className = 'btn small'; el.innerHTML = b.html || esc(b.label);
+        el.className = 'btn small ' + (b.cls || ''); el.innerHTML = (b.icon ? ic(b.icon, 20) : '') + (b.html || esc(b.label || ''));
         if (b.href) el.href = b.href; else el.onclick = b.onClick;
         if (b.aria) el.setAttribute('aria-label', b.aria);
         box.appendChild(el);

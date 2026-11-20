@@ -18,18 +18,18 @@
 <body>
   <div id="app">
     <header id="topbar">
-      <button id="btn-back" class="icon-btn" aria-label="Retour" hidden>‹</button>
+      <div id="brand-slot"></div>
+      <button id="btn-back" class="icon-btn" aria-label="Retour" hidden></button>
       <h1 id="title">Accueil</h1>
       <div id="top-actions"></div>
     </header>
     <main id="main" tabindex="-1"></main>
-    <nav id="tabbar">
-      <a href="#/accueil" data-tab="accueil"><span class="ico">⌂</span><span>Accueil</span></a>
-      <a href="#/tournee" data-tab="tournee"><span class="ico">➤</span><span>Tournée</span></a>
-      <a href="#/clients" data-tab="clients"><span class="ico">☰</span><span>Clients</span></a>
-      <a href="#/commandes" data-tab="commandes"><span class="ico">✎</span><span>Commandes</span></a>
-      <a href="#/stats" data-tab="stats"><span class="ico">▤</span><span>Chiffres</span></a>
-      <a href="#/plus" data-tab="plus"><span class="ico">⋯</span><span>Plus</span></a>
+    <nav id="tabbar" aria-label="Navigation principale">
+      <a href="#/accueil" data-tab="accueil" data-ic="home"><span>Accueil</span></a>
+      <a href="#/tournee" data-tab="tournee" data-ic="route"><span>Tournée</span></a>
+      <a href="#/clients" data-tab="clients" data-ic="users"><span>Clients</span></a>
+      <a href="#/stats" data-tab="stats" data-ic="chart"><span>Chiffres</span></a>
+      <a href="#/plus" data-tab="plus" data-ic="more"><span>Plus</span></a>
     </nav>
   </div>
   <div id="modal-root"></div>

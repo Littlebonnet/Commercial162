@@ -196,7 +196,7 @@ export async function chargerDemo() {
       const m = parseD(d).getMonth();
       const f = SAISON[c.saison][m] * (1 + 0.07 * (1 - (parseD(t) - parseD(d)) / (365 * 86400e3))) * (baisse && d > addDays(t, -95) ? 0.55 : 1);
       if (rnd() < Math.min(1, f * 1.15) && f > 0.02) {
-        const cmdId = d >= addDays(t, -21) ? did('o') : null;
+        const cmdId = null; // plus de saisie de commandes dans l'app : tout passe par les ventes
         const lignes = [];
         for (const [ref, h] of habit) {
           if (ref === arretRef && d > arretDate) continue;
@@ -252,11 +252,29 @@ export async function chargerDemo() {
   for (let i = 0; i < 10; i++) rappels.push({ id: did('r'), clientId: pick(clients).id, date: addDays(t, int(-6, 18)), texte: pick(R), fait: false, cree: addDays(t, -int(1, 20)), demo: true });
   for (let i = 0; i < 6; i++) rappels.push({ id: did('r'), clientId: pick(clients).id, date: addDays(t, -int(8, 60)), texte: pick(R), fait: true, faitLe: addDays(t, -int(1, 7)), demo: true });
 
+  // Situation, jours de visite et de télévente, périodes de fermeture
+  const SIT = ['Redressement judiciaire', 'Paiement à surveiller', 'Paiement à surveiller', 'En vente / changement de gérant', 'Compte bloqué'];
+  clients.filter(c => c.statut === 'client').slice(10, 15).forEach((c, i) => { c.situation = SIT[i]; c.situationDate = addDays(t, -int(20, 200)); if (i === 0) c.situationNote = 'Mandataire nommé, paiement à la commande'; });
+  const jz2 = cfg().joursZones;
+  for (const c of clients) {
+    if (c.statut === 'client' && rnd() < .45) { const d = [1, 2, 3, 4, 5].find(j => (jz2[j] || []).includes(c.zone)); if (d) c.jourVisite = d; }
+    if (c.statut === 'client' && rnd() < .5) c.jourAppel = int(1, 5);
+    const y = parseD(t).getFullYear();
+    if ((c.moisFermes || []).length) {
+      const m = c.moisFermes;
+      c.periodesFermeture = c.saison === 'ete' ? [{ du: `${y}-10-01`, au: `${y}-03-31`, annuel: true, motif: 'Fermeture hivernale' }]
+        : c.type === 'Station de ski' || c.typeEtab === 'Station de ski' ? [{ du: `${y}-04-25`, au: `${y}-11-30`, annuel: true, motif: 'Hors saison' }]
+        : [{ du: `${y}-05-01`, au: `${y}-06-30`, annuel: true, motif: 'Intersaison' }, { du: `${y}-10-01`, au: `${y}-11-30`, annuel: true, motif: 'Intersaison' }];
+      delete c.moisFermes;
+    }
+  }
+  const conges = clients.filter(c => c.saison === 'annuel' && c.statut === 'client');
+  if (conges[3]) conges[3].periodesFermeture = [{ du: addDays(t, 2), au: addDays(t, 12), annuel: false, motif: 'Congés' }];
+  if (conges[7]) conges[7].periodesFermeture = [{ du: addDays(t, -3), au: addDays(t, 6), annuel: false, motif: 'Travaux' }];
   for (const c of clients) delete c._size;
   await bulkPut('produits', produits);
   await bulkPut('clients', clients);
   for (let i = 0; i < ventes.length; i += 4000) await bulkPut('ventes', ventes.slice(i, i + 4000));
-  await bulkPut('commandes', commandes);
   await bulkPut('visites', visites);
   await bulkPut('rappels', rappels);
 

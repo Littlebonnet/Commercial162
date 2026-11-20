@@ -1,6 +1,6 @@
 # Tournée Alpagel
 
-Application de suivi commercial pour iPad et iPhone : fiches clients, tournées GPS optimisées, prise de commande avec bon PDF signé, chiffres N vs N-1, objectifs et prime.
+Application de suivi commercial pour iPad et iPhone : fiches clients, tournées GPS optimisées, comptes rendus de visite, chiffres N vs N-1, objectifs et prime. Les commandes se passent dans le logiciel de l'entreprise : l'app ne les saisit pas.
 
 - **Gratuite** : pas d'App Store ni de Mac, elle s'installe depuis Safari.
 - **Fonctionne hors connexion** : seuls le géocodage des adresses et le calcul des trajets réels utilisent Internet. Sans réseau, les trajets sont estimés.
@@ -57,7 +57,7 @@ Les données de l'iPad et de l'iPhone sont **séparées** : pour passer de l'un 
 
 ## 3. Premiers réglages (Plus → Réglages)
 
-- **Ton nom, téléphone, email** : ils apparaissent sur les bons de commande.
+- **Ton nom, téléphone, email** : ils apparaissent sur le rapport hebdo.
 - **Adresse du domicile** : point de départ et de retour des tournées (Crolles par défaut).
 - **Journée type** : départ, retour au plus tard, pause déjeuner (12 h – 13 h), nombre maximal de visites.
 - **Zones par jour** : lundi rive droite, mardi rive gauche, mercredi Allevard, jeudi Méribel, vendredi Grenoble et rattrapage (modifiable).
@@ -87,9 +87,9 @@ Astuces :
 - Les dates `15/11/2025`, `2025-11-15`, `11/2025`, `nov. 2025` et les montants `1 234,56 €` sont compris.
 - Une colonne « Mois de fermeture » (`10-4`, `nov, déc`) marque les saisonniers.
 - **Géolocaliser les fiches sans coordonnées** relance le géocodage (utile après un import hors connexion).
-- **Export Excel complet** : toutes tes données dans un classeur (clients, contacts, matériel, visites, commandes, ventes, catalogue, rappels).
+- **Export Excel complet** : toutes tes données dans un classeur (clients, contacts, matériel, visites, ventes, catalogue, rappels).
 
-Les commandes validées dans l'application alimentent aussi le chiffre d'affaires et la marge.
+Le chiffre d'affaires et la marge viennent de l'import des ventes.
 
 ---
 
@@ -107,14 +107,16 @@ Les données vivent dans l'iPad. Si l'application est supprimée ou l'iPad perdu
 
 ## 6. Au quotidien
 
-- **Accueil** : tournée du jour, CA du mois vs objectif et N-1, prime estimée et ce qu'il manque pour le palier suivant, relances dues, alertes (pas vu depuis X jours, ne commande plus, CA en baisse, fin de contrat), indicateurs d'activité.
-- **Tournée** : proposition automatique (zone du jour, fréquence de visite, retards, rappels, prospects), heures d'arrivée, créneaux, attentes et pause. Ajoute, retire ou déplace des clients : la tournée se réoptimise. Par arrêt : **Waze**, **Appeler**, **Visite faite** (un appui sur le résultat suffit, note et rappel facultatifs), **Commande**. **Je suis en retard** recalcule le reste de la journée depuis ta position GPS ; **Reporter les visites impossibles** retire ce qui ne tient plus. Bouton **Semaine** : vue des 5 jours par zones.
-- **Clients** : recherche, filtres (zone, type, tag, prospects, en retard), liste ou carte colorée par type d'établissement. La fiche regroupe contacts, créneaux, fermetures, matériel prêté avec n° de série, photos et documents, historique, CA 12 mois et N-1, objectif, top 20 produits en quantités, produits arrêtés et suggestions.
-- **Commandes** : produits habituels du client avec +/-, recherche dans le catalogue, nouveautés et promos, suggestions, total HT et marge, signature au doigt, **Envoyer le bon (PDF)** via le partage iOS (Mail, Messages, AirDrop).
+- **Accueil** : tournée du jour, clients appelés aujourd'hui par la télévendeuse, CA du mois vs objectif et N-1, prime estimée et ce qu'il manque pour le palier suivant, relances dues, alertes (pas vu depuis X jours, ne commande plus, CA en baisse, fin de contrat), indicateurs d'activité.
+- **Tournée** : proposition automatique (jour de visite de chaque client sinon zone du jour, fréquence de visite, retards, rappels, prospects), heures d'arrivée, créneaux, attentes et pause. Ajoute, retire ou déplace des clients : la tournée se réoptimise. Par arrêt : **Waze**, **Appeler**, **Visite faite** (un appui sur le résultat suffit, note et rappel facultatifs). **Je suis en retard** recalcule le reste de la journée depuis ta position GPS ; **Reporter les visites impossibles** retire ce qui ne tient plus. Bouton **Semaine** : vue des 5 jours par zones.
+- **Clients** : recherche, filtres (zone, type, situation, jour de visite ou de télévente, étiquette, prospects, en retard), liste ou carte colorée par type d'établissement. La fiche regroupe la situation (RAS, redressement judiciaire…), le jour de visite et le jour d'appel de la télévendeuse, les créneaux spécifiques, les fermetures (jours de la semaine et périodes datées, éventuellement chaque année), les contacts, matériel prêté avec n° de série, photos et documents, historique, CA 12 mois et N-1, objectif, top 20 produits en quantités, produits arrêtés et suggestions.
 - **Chiffres** : N vs N-1 par mois, par zone, par type, par client, objectifs par client, top 20 global, nouveaux clients, activité.
 - **Plus** : prospection (à contacter → RDV pris → devis envoyé → gagné / perdu), rappels, catalogue, import/export, **rapport hebdo PDF** pour ton manager, sauvegarde, réglages.
 
 ---
+
+### Logo
+Le petit logo en haut à gauche est un pictogramme provisoire. Pour mettre le logo officiel, dépose-le dans `icons/` (par exemple `icons/logo.png`) et demande son intégration.
 
 ## 7. Pour le développement
 
@@ -126,7 +128,8 @@ Les données vivent dans l'iPad. Si l'application est supprimée ou l'iPad perdu
   - `js/ref.js` : types, communes, zones, réglages
   - `js/metrics.js` : calculs
   - `js/route.js` : géocodage, trajets, optimisation
-  - `js/pdf.js` : bons de commande et rapports
+  - `js/pdf.js` : rapport hebdo PDF
+  - `js/icons.js` : icônes et logo
   - `js/io.js` : import, export, sauvegarde
   - `js/demo.js` : jeu de démonstration
   - `js/ui.js` : composants partagés

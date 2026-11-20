@@ -1,6 +1,6 @@
 // Géocodage, temps de trajet et optimisation de tournée avec créneaux horaires.
 import { S, kv, setKV } from './db.js';
-import { cfg, TYPES } from './ref.js';
+import { cfg, TYPES, situationOf } from './ref.js';
 import { haversine, hm2min, today, parseD, daysBetween } from './util.js';
 import { idx, freqOf, retard, clients, rappelsDus } from './metrics.js';
 
@@ -79,7 +79,19 @@ export function creneaux(c) {
 // Fermé ce jour-là : jour de fermeture hebdomadaire ou mois de fermeture (saisonniers)
 export function fermeLe(c, dateStr) {
   const d = parseD(dateStr);
-  return (c.fermeture || []).map(Number).includes(d.getDay()) || (c.moisFermes || []).map(Number).includes(d.getMonth() + 1);
+  return (c.fermeture || []).map(Number).includes(d.getDay()) || (c.moisFermes || []).map(Number).includes(d.getMonth() + 1) || !!periodeFermee(c, dateStr);
+}
+// Période de fermeture en cours (du … au …, éventuellement « chaque année »)
+export function periodeFermee(c, dateStr) {
+  const md = dateStr.slice(5);
+  for (const p of c.periodesFermeture || []) {
+    if (!p.du || !p.au) continue;
+    if (p.annuel) {
+      const a = p.du.slice(5), b = p.au.slice(5);
+      if (a <= b ? (md >= a && md <= b) : (md >= a || md <= b)) return p;
+    } else if (dateStr >= p.du && dateStr <= p.au) return p;
+  }
+  return null;
 }
 
 // ---------- Planification d'une séquence ----------
@@ -215,10 +227,13 @@ export function candidats(dateStr) {
     if (x.archive || x.lat == null) continue;
     if (fermeLe(x, dateStr)) continue;
     if (x.statut === 'prospect' && ['Gagné', 'Perdu'].includes(x.etape)) continue;
-    const inZone = zones.has(x.zone);
+    if (situationOf(x).exclu) continue;
+    // Jour de visite fixé sur la fiche : il prime sur la zone du jour
+    const jourFixe = x.jourVisite ? +x.jourVisite : null;
+    const inZone = jourFixe ? jourFixe === dow : zones.has(x.zone);
     const r = x.statut === 'prospect' ? (x.prochainContact && x.prochainContact <= dateStr ? 10 : -5) : retard(x, dateStr);
     let score = 0; const why = [];
-    if (inZone) { score += 30; why.push('zone du jour'); }
+    if (inZone) { score += jourFixe ? 45 : 30; why.push(jourFixe ? 'son jour de visite' : 'zone du jour'); }
     if (r >= 0 && x.statut !== 'prospect') { score += 40 + Math.min(r, 60); why.push(r >= 999 ? 'jamais visité' : r === 0 ? 'visite due' : `en retard de ${r} j`); }
     else if (r > -4 && x.statut !== 'prospect') { score += 15; why.push('bientôt dû'); }
     if (rap.has(x.id)) { score += 60; why.push('rappel'); }

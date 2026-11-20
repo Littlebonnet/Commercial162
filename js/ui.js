@@ -1,6 +1,7 @@
 // Composants partagés : carte, graphiques, sélecteur de client, compte rendu de visite, rappels, photos.
 import { S, put, del, kv, setKV } from './db.js';
-import { cfg, typeColor, TYPE_NAMES, RESULTATS, findCommune, zoneOf } from './ref.js';
+import { cfg, typeColor, TYPE_NAMES, RESULTATS, findCommune, zoneOf, situationOf, zoneColor, jourNom } from './ref.js';
+import { ic } from './icons.js';
 import { $, $$, esc, uid, modal, toast, today, addDays, norm, debounce, dateFr, relDays, eur, telHref, hm2min } from './util.js';
 import { idx, clientName, retard } from './metrics.js';
 import { suggestAdresses } from './route.js';
@@ -41,7 +42,7 @@ export function pin(color, label = '', small = false, extra = '') {
   });
 }
 export function homeIcon() {
-  return L.divIcon({ className: '', iconSize: [34, 34], iconAnchor: [17, 17], html: '<div class="pin home">⌂</div>' });
+  return L.divIcon({ className: '', iconSize: [34, 34], iconAnchor: [17, 17], html: `<div class="pin home">${ic('home', 18)}</div>` });
 }
 
 // ---------- Graphiques Chart.js (couleurs selon le thème) ----------
@@ -66,11 +67,18 @@ export function retardTag(c) {
   if (r > -4) return '<span class="tag amber">à voir</span>';
   return '';
 }
+// Situation (RJ, compte bloqué…) : rien si RAS
+export function situationTag(c) {
+  const s = situationOf(c);
+  return s.k === 'RAS' ? '' : `<span class="tag ${s.niveau || 'grey'}">${esc(s.label)}</span>`;
+}
+export const zoneTag = z => z ? `<span class="tag zone" style="--zc:${zoneColor(z)}">${esc(z)}</span>` : '';
 export function clientLine(c, end = '') {
   const lv = idx().lastVisit.get(c.id);
+  const jours = [c.jourVisite ? 'visite ' + jourNom(c.jourVisite).toLowerCase() : '', c.jourAppel ? 'télévente ' + jourNom(c.jourAppel).toLowerCase() : ''].filter(Boolean).join(' · ');
   return `<a class="item" href="#/clients/${c.id}">${typeDot(c.typeEtab)}
-    <div class="main"><div class="t">${esc(c.enseigne || c.nom)}</div><div class="s">${esc(c.ville || '')} · ${esc(c.typeEtab || '')} · vu ${relDays(lv)}</div></div>
-    <div class="end">${end}${retardTag(c)}</div></a>`;
+    <div class="main"><div class="t">${esc(c.enseigne || c.nom)}</div><div class="s">${esc(c.ville || '')} · ${esc(c.typeEtab || '')} · vu ${relDays(lv)}${jours ? ' · ' + jours : ''}</div></div>
+    <div class="end">${end}<div>${situationTag(c)}${retardTag(c)}</div></div>${ic('next', 20, 'chev')}</a>`;
 }
 
 // ---------- Sélecteur de client ----------
@@ -121,7 +129,7 @@ export function visiteRapide(clientId, { date = today(), onSaved } = {}) {
   modal({
     title: 'Visite · ' + clientName(clientId),
     body: `<p class="muted small" style="margin-top:0" data-hint>${v ? 'Visite déjà enregistrée : tu peux changer le résultat ou compléter.' : 'Touche le résultat : la visite est enregistrée aussitôt.'}</p>
-      <div class="res-grid">${RESULTATS.map(r => `<button class="btn ${v && v.resultat === r ? 'primary' : ''}" data-r="${esc(r)}">${resIcon(r)} ${esc(r)}</button>`).join('')}</div>
+      <div class="res-grid">${RESULTATS.map(r => `<button class="btn ${v && v.resultat === r ? 'primary' : ''}" data-r="${esc(r)}">${resIcon(r)}${esc(r)}</button>`).join('')}</div>
       <label class="field" style="margin-top:14px"><span>Note (facultatif)</span><textarea data-note placeholder="Ce qui s'est dit, besoin, concurrence…">${esc(v ? v.note : '')}</textarea></label>
       <div class="row wrap-r"><label class="field grow" style="margin:0"><span>Rappel le (facultatif)</span><input type="date" data-rd></label>
       <div class="chips" style="align-self:flex-end">${[[7, '+1 sem.'], [14, '+2 sem.'], [30, '+1 mois']].map(([d, l]) => `<button class="chip" data-plus="${d}">${l}</button>`).join('')}</div></div>
@@ -135,8 +143,8 @@ export function visiteRapide(clientId, { date = today(), onSaved } = {}) {
         await put('visites', v); changed = true;
         if (c && c.statut === 'prospect' && (!c.etape || c.etape === 'À contacter')) { c.etape = 'RDV pris'; c.etapeDate = today(); await put('clients', c); }
         $$('[data-r]', body).forEach(x => x.classList.toggle('primary', x === b));
-        $('[data-hint]', body).innerHTML = '<b class="up">✓ Visite enregistrée.</b> Ajoute une note ou un rappel si besoin, puis « Terminer ».';
-        toast('Visite enregistrée ✓');
+        $('[data-hint]', body).innerHTML = '<b class="up">Visite enregistrée.</b> Ajoute une note ou un rappel si besoin, puis « Terminer ».';
+        toast('Visite enregistrée');
       });
       // Fermeture par ✕ ou en touchant à côté : on garde la note saisie
       const back = body.closest('.modal-back');
@@ -148,7 +156,7 @@ export function visiteRapide(clientId, { date = today(), onSaved } = {}) {
     ],
   });
 }
-export const resIcon = r => ({ 'Commande prise': '🛒', 'RAS': '✓', 'À rappeler': '☎', 'Absent': '∅', 'Problème': '⚠', 'Prospection': '★' }[r] || '•');
+export const resIcon = (r, size = 20) => ic({ 'Commande prise': 'check', 'RAS': 'check', 'À rappeler': 'phone', 'Absent': 'ban', 'Problème': 'alert', 'Prospection': 'star' }[r] || 'info', size);
 
 // ---------- Rappel ----------
 export function rappelForm(r = {}, onSaved) {
@@ -211,38 +219,14 @@ export async function compressImage(file, max = 1600, q = 0.82) {
   } catch (e) { return file; } finally { URL.revokeObjectURL(url); }
 }
 
-// ---------- Signature au doigt ----------
-export function signaturePad(onDone) {
-  modal({
-    title: 'Signature du client', wide: true,
-    body: `<p class="muted small" style="margin-top:0">Signez dans le cadre avec le doigt.</p><canvas class="sig" width="1000" height="380"></canvas>`,
-    onOpen(body) {
-      const cv = $('canvas', body), g = cv.getContext('2d');
-      g.lineWidth = 4; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#0b2440';
-      let drawing = false, last = null, dirty = false;
-      const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
-      cv.addEventListener('pointerdown', e => { drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); e.preventDefault(); });
-      cv.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); g.beginPath(); g.moveTo(...last); g.lineTo(...p); g.stroke(); last = p; dirty = true; e.preventDefault(); });
-      const up = () => { drawing = false; };
-      cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-      body._get = () => dirty ? cv.toDataURL('image/png') : null;
-      body._clear = () => { g.clearRect(0, 0, cv.width, cv.height); dirty = false; };
-    },
-    buttons: [
-      { label: 'Effacer', cls: 'ghost', onClick: body => { body._clear(); return false; } },
-      { label: 'Valider la signature', cls: 'primary', onClick: body => { const d = body._get(); if (!d) { toast('Pas de signature'); return false; } onDone(d); } },
-    ],
-  });
-}
-
 // ---------- Sélecteurs de créneaux ----------
 export function creneauxEditor(list, placeholder = []) {
-  const rows = (list && list.length ? list : []).concat([['', ''], ['', ''], ['', '']]).slice(0, 3);
-  return `<div class="cren">${rows.map(([a, b], i) => `<div class="row"><input type="time" data-ca="${i}" value="${esc(a || '')}" placeholder="${esc((placeholder[i] || [])[0] || '')}"><span>→</span><input type="time" data-cb="${i}" value="${esc(b || '')}" placeholder="${esc((placeholder[i] || [])[1] || '')}"></div>`).join('')}</div>`;
+  const rows = (list && list.length ? list : []).concat([['', ''], ['', ''], ['', ''], ['', '']]).slice(0, 4);
+  return `<div class="cren">${rows.map(([a, b], i) => `<div class="row"><span class="muted small">de</span><input type="time" data-ca="${i}" value="${esc(a || '')}" placeholder="${esc((placeholder[i] || [])[0] || '')}"><span class="muted small">à</span><input type="time" data-cb="${i}" value="${esc(b || '')}" placeholder="${esc((placeholder[i] || [])[1] || '')}"></div>`).join('')}</div>`;
 }
 export function readCreneaux(root) {
   const out = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const a = $(`[data-ca="${i}"]`, root)?.value, b = $(`[data-cb="${i}"]`, root)?.value;
     if (a && b && hm2min(b) > hm2min(a)) out.push([a, b]);
   }
@@ -259,16 +243,6 @@ export async function setTournee(date, t) {
   const lim = addDays(today(), -60);
   for (const k of Object.keys(all)) if (k < lim) delete all[k];
   await setKV('tournees', all);
-}
-
-// Prochain jour de livraison du client (pour pré-remplir les commandes)
-export function prochaineLivraison(c, from = today()) {
-  const j = c && c.jourLivraison;
-  const map = { dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
-  const dow = map[norm(j || '').slice(0, 8).replace(/[^a-z]/g, '')];
-  if (dow === undefined) return addDays(from, 1);
-  for (let i = 1; i <= 7; i++) { const d = addDays(from, i); if (new Date(d + 'T12:00').getDay() === dow) return d; }
-  return addDays(from, 1);
 }
 
 export { zoneOf, findCommune, TYPE_NAMES, eur, dateFr, telHref };

@@ -126,7 +126,23 @@ export function zoneOf(ville, lat, lng) {
 }
 export const zoneColor = z => (ZONES[z] || { color: '#7A7A7A' }).color;
 
-export const ETAPES = ['À contacter', 'RDV pris', 'Devis envoyé', 'Gagné', 'Perdu'];
+// Situation du client (RAS par défaut). « exclu » : jamais proposé en tournée.
+export const SITUATIONS = [
+  { k: 'RAS', label: 'RAS', niveau: '' },
+  { k: 'Paiement à surveiller', label: 'Paiement à surveiller', niveau: 'amber' },
+  { k: 'Procédure de sauvegarde', label: 'Procédure de sauvegarde', niveau: 'amber' },
+  { k: 'Redressement judiciaire', label: 'Redressement judiciaire (RJ)', niveau: 'red' },
+  { k: 'Liquidation judiciaire', label: 'Liquidation judiciaire (LJ)', niveau: 'red', exclu: true },
+  { k: 'Compte bloqué', label: 'Compte bloqué', niveau: 'red' },
+  { k: 'En vente / changement de gérant', label: 'En vente / changement de gérant', niveau: 'amber' },
+  { k: 'Fermé définitivement', label: 'Fermé définitivement', niveau: 'grey', exclu: true },
+];
+export const situationOf = c => SITUATIONS.find(s => s.k === (c && c.situation)) || SITUATIONS[0];
+// Jours de la semaine proposés pour la visite et l'appel de la télévendeuse (1 = lundi … 6 = samedi)
+export const JOURS_SEMAINE = [[1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']];
+export const jourNom = d => (JOURS_SEMAINE.find(([n]) => n === +d) || [, ''])[1];
+
+export const ETAPES =['À contacter', 'RDV pris', 'Devis envoyé', 'Gagné', 'Perdu'];
 export const RESULTATS = ['Commande prise', 'RAS', 'À rappeler', 'Absent', 'Problème', 'Prospection'];
 
 // Réglages par défaut (modifiables dans Plus → Réglages)
@@ -149,7 +165,7 @@ export const DEFAULT_CFG = {
   objectifNouveaux: 2, // nouveaux clients par mois
   prime: { base: 'ca', taux: 0, paliers: [{ seuil: 100, montant: 0 }] },
   tva: 5.5,
-  theme: 'auto',
+  theme: 'light',
   vitesseKmh: 45, // utilisé hors connexion pour estimer les trajets
   facteurRoute: 1.4,
   demo: false,

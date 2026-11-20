@@ -1,3 +1,4 @@
+import { ic } from './icons.js';
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -71,7 +72,7 @@ export function modal({ title, body, buttons = [], onOpen, wide }) {
   const back = document.createElement('div');
   back.className = 'modal-back';
   back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" ${wide ? 'style="max-width:1100px"' : ''}>
-    <header><h2>${esc(title)}</h2><button class="btn small ghost" data-x aria-label="Fermer">✕</button></header>
+    <header><h2>${esc(title)}</h2><button class="btn small ghost icon-only" data-x aria-label="Fermer">${ic('close', 22)}</button></header>
     <div class="body">${body}</div>
     ${buttons.length ? '<footer></footer>' : ''}</div>`;
   const close = () => back.remove();

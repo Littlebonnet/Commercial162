@@ -163,6 +163,7 @@ export function alertes() {
   const c = cfg(), t = today(), I = idx();
   const out = [];
   for (const x of clients()) {
+    if (x.situation === 'Fermé définitivement' || x.situation === 'Liquidation judiciaire') continue;
     const lv = I.lastVisit.get(x.id);
     const sinceV = lv ? daysBetween(lv, t) : null;
     if (sinceV !== null && sinceV > c.alerteSansVisite) out.push({ id: x.id, niveau: 'amber', type: 'visite', txt: `Pas vu depuis ${sinceV} jours`, score: sinceV });
@@ -194,12 +195,11 @@ export function activite(jours = 28) {
   const t = today(), from = addDays(t, -jours);
   const vis = S.visites.filter(v => v.date > from && v.date <= t);
   const joursTravailles = new Set(vis.map(v => v.date)).size || 1;
-  const cmd = S.commandes.filter(c => c.date > from && c.date <= t && c.statut !== 'brouillon');
-  const caCmd = sum(cmd, c => c.totalHT);
+  const avecCmd = vis.filter(v => v.resultat === 'Commande prise').length;
   const won = S.clients.filter(c => c.etape === 'Gagné').length, lost = S.clients.filter(c => c.etape === 'Perdu').length;
   return {
     visites: vis.length, parJour: vis.length / joursTravailles, joursTravailles,
-    commandes: cmd.length, panier: cmd.length ? caCmd / cmd.length : 0,
+    commandes: avecCmd, clientsVus: new Set(vis.map(v => v.clientId)).size,
     tauxVisiteCommande: vis.length ? vis.filter(v => v.resultat === 'Commande prise').length / vis.length * 100 : 0,
     transfo: won + lost ? won / (won + lost) * 100 : null, won, lost,
   };

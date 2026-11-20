@@ -4,6 +4,7 @@ import { cfg, ZONE_NAMES, TYPE_NAMES, zoneColor, typeColor } from '../ref.js';
 import { $, $$, esc, eur, num, pct, today, addDays, MOIS, ym, iso, sum, groupBy, parseD } from '../util.js';
 import { idx, client, clientName, clients, serieMensuelle, objectifMois, monthRange, thisMonth, shiftMonth, topProduits, caOf, margeOf, ventesEntre, activite } from '../metrics.js';
 import { chart, fmtK, typeDot } from '../ui.js';
+import { ic } from '../icons.js';
 
 let periode = 'mois';
 let triClients = 'ca';
@@ -28,7 +29,7 @@ export function render(main, ctx) {
   const cur = ventesEntre(b.from, b.to), prev = ventesEntre(b.fromN1, b.toN1);
   const ca = caOf(cur), caN1 = caOf(prev), mg = margeOf(cur), mgN1 = margeOf(prev);
   const evo = (a, z) => z ? (a - z) / z * 100 : null;
-  const evoTxt = (a, z) => { const e = evo(a, z); return e === null ? '<span class="muted">—</span>' : `<span class="${e >= 0 ? 'up' : 'down'}">${e >= 0 ? '▲' : '▼'} ${pct(Math.abs(e))}</span>`; };
+  const evoTxt = (a, z) => { const e = evo(a, z); return e === null ? '<span class="muted">—</span>' : `<span class="${e >= 0 ? 'up' : 'down'}">${e >= 0 ? '+' : '−'}${pct(Math.abs(e))}</span>`; };
 
   const sN = serieMensuelle(y), sN1 = serieMensuelle(y - 1);
   const objs = Array.from({ length: 12 }, (_, i) => objectifMois(`${y}-${String(i + 1).padStart(2, '0')}`) || null);
@@ -79,39 +80,39 @@ export function render(main, ctx) {
       <div class="card kpi"><div class="lbl">Clients actifs</div><div class="val">${byC.size}</div><div class="sub">N-1 ${byC1.size}</div></div>
     </div>
 
-    <div class="card" style="margin-top:14px"><h2>CA mensuel ${y} vs ${y - 1} <span class="right muted small">barres = CA · ligne = objectif</span></h2><div class="chart-box tall"><canvas data-c="mois"></canvas></div></div>
+    <div class="card" style="margin-top:14px"><h2>${ic('chart')}CA mensuel ${y} vs ${y - 1} <span class="right muted small">barres = CA · ligne = objectif</span></h2><div class="chart-box tall"><canvas data-c="mois"></canvas></div></div>
 
     <div class="grid g2" style="margin-top:14px">
-      <div class="card"><h2>Par zone</h2>${tableAgg(ZONE_NAMES, byZ, byZ1, zoneColor)}</div>
-      <div class="card"><h2>Par type de client</h2>${tableAgg(TYPE_NAMES, byT, byT1, typeColor)}</div>
+      <div class="card"><h2>${ic('map')}Par zone</h2>${tableAgg(ZONE_NAMES, byZ, byZ1, zoneColor)}</div>
+      <div class="card"><h2>${ic('users')}Par type de client</h2>${tableAgg(TYPE_NAMES, byT, byT1, typeColor)}</div>
     </div>
 
-    <div class="card" style="margin-top:14px"><h2>CA et marge par client <span class="right muted small">${clientRows.length} clients · touche un en-tête pour trier</span></h2>
+    <div class="card" style="margin-top:14px"><h2>${ic('euro')}CA et marge par client <span class="right muted small">${clientRows.length} clients · touche un en-tête pour trier</span></h2>
       <div class="scroll-x scroll-y"><table class="tbl"><thead><tr><th>Client</th>${[['ca', 'CA'], ['n1', 'N-1'], ['evo', 'Évol.'], ['mg', 'Marge'], ['tm', 'Taux']].map(([k, l]) => `<th class="n" data-sort="${k}">${l}${triClients === k ? ' ▾' : ''}</th>`).join('')}</tr></thead>
       <tbody>${clientRows.slice(0, 300).map(r => { const c = I.byId.get(r.id); return `<tr class="clickable" data-go="${r.id}"><td>${typeDot(c?.typeEtab)} ${esc(clientName(r.id))}<div class="muted small">${esc(c?.ville || '')}</div></td><td class="n"><b>${eur(r.ca)}</b></td><td class="n muted">${eur(r.n1)}</td><td class="n">${evoTxt(r.ca, r.n1)}</td><td class="n">${eur(r.mg)}</td><td class="n">${pct(r.tm)}</td></tr>`; }).join('')}</tbody></table></div></div>
 
     <div class="grid g2" style="margin-top:14px">
-      <div class="card"><h2>Objectifs par client <span class="right muted small">mois en cours</span></h2>
+      <div class="card"><h2>${ic('check')}Objectifs par client <span class="right muted small">mois en cours</span></h2>
         ${objClients.length ? `<div class="scroll-y">${objClients.map(r => `<a class="obj-row" href="#/clients/${r.c.id}"><div class="row"><span class="grow">${esc(r.c.enseigne || r.c.nom)}</span><span class="small">${eur(r.ca)} / ${eur(r.c.objectifMensuel)} · <b>${pct(r.att)}</b></span></div><div class="progress ${r.att >= 100 ? 'ok' : ''}"><div style="width:${Math.min(100, r.att)}%"></div></div></a>`).join('')}</div>`
         : '<div class="empty">Aucun objectif par client. Renseigne « Objectif CA mensuel » dans les fiches.</div>'}</div>
-      <div class="card"><h2>Top 20 produits <span class="right muted small">quantités · tous clients</span></h2>
+      <div class="card"><h2>${ic('star')}Top 20 produits <span class="right muted small">quantités · tous clients</span></h2>
         ${top.length ? `<div class="scroll-y"><table class="tbl"><thead><tr><th>#</th><th>Produit</th><th class="n">Qté</th><th class="n">CA</th></tr></thead><tbody>${top.map((p, i) => `<tr><td class="muted">${i + 1}</td><td>${esc(p.designation || p.ref)}<div class="muted small">${esc(p.ref)}</div></td><td class="n"><b>${num(p.qte)}</b></td><td class="n">${eur(p.ht)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Pas de ventes</div>'}</div>
     </div>
 
     <div class="grid g2" style="margin-top:14px">
-      <div class="card"><h2>Nouveaux clients <span class="right muted small">objectif ${cfg().objectifNouveaux} / mois</span></h2><div class="chart-box"><canvas data-c="nouveaux"></canvas></div></div>
-      <div class="card"><h2>Activité <span class="right muted small">12 semaines</span></h2><div class="chart-box"><canvas data-c="activite"></canvas></div>
-        <div class="row wrap-r small" style="margin-top:8px;gap:16px"><span>Visites/jour : <b>${num(act.parJour)}</b></span><span>Visite → commande : <b>${pct(act.tauxVisiteCommande)}</b></span><span>Panier moyen : <b>${eur(act.panier)}</b></span><span>Transformation prospects : <b>${act.transfo === null ? '—' : pct(act.transfo)}</b></span></div></div>
+      <div class="card"><h2>${ic('user')}Nouveaux clients <span class="right muted small">objectif ${cfg().objectifNouveaux} / mois</span></h2><div class="chart-box"><canvas data-c="nouveaux"></canvas></div></div>
+      <div class="card"><h2>${ic('calendar')}Activité <span class="right muted small">12 semaines</span></h2><div class="chart-box"><canvas data-c="activite"></canvas></div>
+        <div class="row wrap-r small" style="margin-top:8px;gap:16px"><span>Visites/jour : <b>${num(act.parJour)}</b></span><span>Visites avec commande : <b>${pct(act.tauxVisiteCommande)}</b></span><span>Clients vus : <b>${act.clientsVus}</b></span><span>Transformation prospects : <b>${act.transfo === null ? '—' : pct(act.transfo)}</b></span></div></div>
     </div>
   </div>`;
 
-  const grey = 'rgba(147,164,178,.55)';
+  const grey = 'rgba(140,152,165,.45)';
   charts.push(chart($('[data-c="mois"]', main), {
     type: 'bar',
     data: { labels: MOIS, datasets: [
       { label: String(y), data: sN.ca, backgroundColor: '#1B6DB5', borderRadius: 4, order: 2 },
       { label: String(y - 1), data: sN1.ca, backgroundColor: grey, borderRadius: 4, order: 3 },
-      { label: 'Marge ' + y, data: sN.mg, type: 'line', borderColor: '#2E8B57', backgroundColor: '#2E8B57', tension: .3, order: 1 },
+      { label: 'Marge ' + y, data: sN.mg, type: 'line', borderColor: '#2E8B57', backgroundColor: '#1F7A4C', tension: .3, order: 1 },
       { label: 'Objectif', data: objs, type: 'line', borderColor: '#DD4B3E', borderDash: [6, 4], pointRadius: 0, order: 0, spanGaps: true },
     ] },
     options: { scales: { y: { ticks: { callback: fmtK } } }, plugins: { tooltip: { callbacks: { label: x => x.dataset.label + ' : ' + eur(x.raw) } } } },
@@ -119,7 +120,7 @@ export function render(main, ctx) {
   charts.push(chart($('[data-c="nouveaux"]', main), {
     type: 'bar',
     data: { labels: mois12.map(k => MOIS[+k.slice(5) - 1]), datasets: [
-      { label: 'Nouveaux clients', data: nouveaux, backgroundColor: '#2E8B57', borderRadius: 4 },
+      { label: 'Nouveaux clients', data: nouveaux, backgroundColor: '#1F7A4C', borderRadius: 4 },
       { label: 'Objectif', data: mois12.map(() => cfg().objectifNouveaux), type: 'line', borderColor: '#DD4B3E', borderDash: [6, 4], pointRadius: 0 },
     ] },
     options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
@@ -128,7 +129,7 @@ export function render(main, ctx) {
     type: 'bar',
     data: { labels: sem.map(l => parseD(l).getDate() + ' ' + MOIS[parseD(l).getMonth()]), datasets: [
       { label: 'Visites', data: visSem, backgroundColor: '#1B6DB5', borderRadius: 4 },
-      { label: 'Avec commande', data: cmdSem, backgroundColor: '#2E8B57', borderRadius: 4 },
+      { label: 'Avec commande', data: cmdSem, backgroundColor: '#1F7A4C', borderRadius: 4 },
     ] },
     options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
   }));

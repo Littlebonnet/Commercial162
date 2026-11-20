@@ -4,7 +4,9 @@ import { cfg, typeColor, zoneColor, ZONE_NAMES } from '../ref.js';
 import { $, $$, esc, today, addDays, parseD, JOURS, JOURS_C, dateFr, min2hm, dur, toast, modal, norm, debounce, telHref, iso, confirmBox } from '../util.js';
 import { idx, clientName, retard } from '../metrics.js';
 import { proposer, calculerTournee, candidats, traceRoute, wazeUrl, plansUrl, gmapsUrl, creneaux, dureeVisite, fermeLe } from '../route.js';
-import { makeMap, destroyMap, pin, homeIcon, getTournee, setTournee, visiteRapide, typeDot, creneauxTxt } from '../ui.js';
+import { makeMap, destroyMap, pin, homeIcon, getTournee, setTournee, visiteRapide, typeDot, creneauxTxt, situationTag } from '../ui.js';
+import { ic } from '../icons.js';
+import { jourNom } from '../ref.js';
 
 let mode = 'jour';
 const traceCache = new Map();
@@ -24,11 +26,11 @@ export async function render(main, ctx) {
   const zones = c.joursZones[dow] || [];
   let days = joursOuvres(t, 6);
   if (!days.includes(date)) days = [date, ...days].sort();
-  ctx.actions([{ label: mode === 'jour' ? 'Semaine' : 'Jour', onClick: () => { mode = mode === 'jour' ? 'semaine' : 'jour'; ctx.refresh(); } }]);
+  ctx.actions([{ icon: mode === 'jour' ? 'calendar' : 'route', label: mode === 'jour' ? 'Semaine' : 'Jour', onClick: () => { mode = mode === 'jour' ? 'semaine' : 'jour'; ctx.refresh(); } }]);
 
   main.innerHTML = `<div class="wrap">
     <div class="chips day-chips">${days.map(d => `<a class="chip ${d === date ? 'on' : ''}" href="#/tournee/${d}">${d === t ? "Aujourd'hui" : esc(JOURS_C[parseD(d).getDay()] + ' ' + parseD(d).getDate())}</a>`).join('')}
-      <label class="chip date-pick">📅<input type="date" value="${date}" data-date></label></div>
+      <label class="chip date-pick">${ic('calendar', 20)}Autre date<input type="date" value="${date}" data-date></label></div>
     <div data-body></div></div>`;
   $('[data-date]', main).onchange = e => { if (e.target.value) location.hash = '#/tournee/' + e.target.value; };
   const body = $('[data-body]', main);
@@ -93,15 +95,15 @@ async function drawJour(body, date, tour, ctx) {
         <div><div class="lbl">Route</div><div class="v">${dur(plan.travel)}</div><div class="lbl">${Math.round(plan.km)} km</div></div>
         <div><div class="lbl">Attente</div><div class="v">${dur(plan.wait)}</div></div>
       </div>
-      ${hors.length ? `<div class="alert red" style="margin:10px 0 0">⚠ ${hors.length} visite(s) hors créneau : ${hors.map(r => esc(clientName(stops[r.k].c.id))).join(', ')}. Retire un client ou laisse réoptimiser.</div>` : ''}
-      ${plan.over > 0 ? `<div class="alert" style="margin:10px 0 0">La journée dépasse l'heure de fin (${c.heureFin}) de ${dur(plan.over)}.</div>` : ''}
+      ${hors.length ? `<div class="alert red" style="margin:12px 0 0">${ic('alert')}<div>${hors.length} visite(s) hors créneau : ${hors.map(r => esc(clientName(stops[r.k].c.id))).join(', ')}. Retire un client ou laisse réoptimiser.</div></div>` : ''}
+      ${plan.over > 0 ? `<div class="alert" style="margin:12px 0 0">${ic('clock')}<div>La journée dépasse l'heure de fin (${c.heureFin}) de ${dur(plan.over)}.</div></div>` : ''}
       ${hors.length || plan.over > 10 ? '<button class="btn block" data-drop style="margin-top:10px">Reporter les visites impossibles (elles restent proposées les jours suivants)</button>' : ''}
       <div class="muted small" style="margin-top:8px">${source === 'osrm' ? 'Temps de trajet réels (OSRM)' : 'Hors connexion : trajets estimés à vol d\'oiseau'}${tour.locked ? ' · ordre modifié à la main' : ' · ordre optimisé'}${fromPos ? ' · recalculé depuis ma position à ' + min2hm(tour.depart.heure) : ''}</div>
       <div class="btn-row" style="margin-top:12px">
-        ${isToday ? '<button class="btn danger" data-late>⏱ Je suis en retard</button>' : ''}
-        <button class="btn primary" data-add>+ Ajouter</button>
-        <button class="btn" data-opt>⟳ Réoptimiser</button>
-        <button class="btn" data-repropose>✦ Nouvelle proposition</button>
+        ${isToday ? `<button class="btn" data-late>${ic('clock', 20)}Je suis en retard</button>` : ''}
+        <button class="btn primary" data-add>${ic('plus', 20)}Ajouter</button>
+        <button class="btn" data-opt>${ic('refresh', 20)}Réoptimiser</button>
+        <button class="btn" data-repropose>${ic('star', 20)}Nouvelle proposition</button>
         <button class="btn ghost" data-clear>Vider</button>
       </div>
     </div>
@@ -114,14 +116,14 @@ async function drawJour(body, date, tour, ctx) {
   // ---- Liste des arrêts ----
   const L_ = [];
   const startLbl = fromPos ? 'Ma position' : 'Domicile';
-  L_.push(`<div class="item home-row"><span class="num home">⌂</span><div class="main"><div class="t">Départ · ${startLbl}</div><div class="s">${esc(fromPos ? '' : (c.maison.adresse || 'Crolles (à régler)'))}</div></div><div class="end"><b>${min2hm(res.opt.debut)}</b></div></div>`);
+  L_.push(`<div class="item home-row"><span class="num home">${ic('home', 18)}</span><div class="main"><div class="t">Départ · ${startLbl}</div><div class="s">${esc(fromPos ? '' : (c.maison.adresse || 'Crolles (à régler)'))}</div></div><div class="end"><b>${min2hm(res.opt.debut)}</b></div></div>`);
   doneRows.forEach(id => {
     const x = idx().byId.get(id); if (!x) return;
-    L_.push(`<div class="item stop done-row"><span class="num done">✓</span><div class="main"><div class="t">${esc(x.enseigne || x.nom)}</div><div class="s">${esc(x.ville || '')} · visite faite</div></div></div>`);
+    L_.push(`<div class="item stop done-row"><span class="num done">${ic('check', 18)}</span><div class="main"><div class="t">${esc(x.enseigne || x.nom)}</div><div class="s">${esc(x.ville || '')} · visite faite</div></div></div>`);
   });
   let n = doneRows.length;
   let lunchShown = false;
-  const lunchRow = () => `<div class="item lunch"><span class="num lunch">🍽</span><div class="main"><div class="t">Pause déjeuner</div></div><div class="end">${min2hm(plan.lunch.start)}–${min2hm(plan.lunch.end)}</div></div>`;
+  const lunchRow = () => `<div class="item lunch"><span class="num lunch">${ic('coffee', 18)}</span><div class="main"><div class="t">Pause déjeuner</div></div><div class="end">${min2hm(plan.lunch.start)}–${min2hm(plan.lunch.end)}</div></div>`;
   plan.rows.forEach((r, i) => {
     const s = stops[r.k], x = s.c;
     if (plan.lunch && !lunchShown && plan.lunch.start < r.start) { L_.push(lunchRow()); lunchShown = true; }
@@ -131,27 +133,26 @@ async function drawJour(body, date, tour, ctx) {
     const attente = r.start - r.arr - lo;
     const cr = creneaux(x).map(([a, b]) => min2hm(a) + '–' + min2hm(b)).join(' · ');
     L_.push(`<div class="stop-block ${isDone ? 'is-done' : ''}" data-id="${x.id}">
-      <div class="leg-info muted small">🚗 ${dur(r.trajet)} · ${r.kmIn.toFixed(1)} km${attente > 4 ? ` · <span class="amber-t">attente ${dur(attente)}</span>` : ''}</div>
+      <div class="leg-info muted small">${ic('car', 16)}${dur(r.trajet)} · ${r.kmIn.toFixed(1)} km${attente > 4 ? ` · <span class="amber-t">attente ${dur(attente)}</span>` : ''}</div>
       <div class="item stop">
-        <span class="num ${isDone ? 'done' : ''}" style="${isDone ? '' : 'background:' + typeColor(x.typeEtab)}">${isDone ? '✓' : n}</span>
+        <span class="num ${isDone ? 'done' : ''}" style="${isDone ? '' : 'background:' + typeColor(x.typeEtab)}">${isDone ? ic('check', 18) : n}</span>
         <a class="main" href="#/clients/${x.id}"><div class="t">${esc(x.enseigne || x.nom)}</div>
-          <div class="s">${esc(x.ville || '')} · ${esc(x.typeEtab || '')}${x.statut === 'prospect' ? ' · <b>prospect</b>' : ''}</div>
+          <div class="s">${esc(x.ville || '')} · ${esc(x.typeEtab || '')}${x.statut === 'prospect' ? ' · <b>prospect</b>' : ''}${x.jourAppel ? ' · télévente ' + esc(jourNom(x.jourAppel).toLowerCase()) : ''}</div>${situationTag(x) ? `<div>${situationTag(x)}</div>` : ''}
           <div class="s">Créneaux ${esc(cr)}${r.hors ? ' · <span class="down"><b>hors créneau</b></span>' : ''}</div></a>
         <div class="end"><div class="time">${min2hm(r.start)}</div><div class="muted small">→ ${min2hm(r.end)}</div></div>
       </div>
       <div class="stop-actions">
-        <a class="btn small waze" href="${wazeUrl(x)}" target="_blank" rel="noopener">Waze</a>
-        ${x.tel || (x.contacts || []).some(k => k.tel) ? `<a class="btn small" href="${telHref(x.tel || x.contacts.find(k => k.tel).tel)}">☎ Appeler</a>` : ''}
-        <button class="btn small ${isDone ? '' : 'primary'}" data-visite="${x.id}">${isDone ? '✓ Visite faite' : 'Visite faite'}</button>
-        <a class="btn small" href="#/commandes/nouvelle?client=${x.id}">🛒 Commande</a>
+        <a class="btn small waze" href="${wazeUrl(x)}" target="_blank" rel="noopener">${ic('nav', 18)}Waze</a>
+        ${x.tel || (x.contacts || []).some(k => k.tel) ? `<a class="btn small" href="${telHref(x.tel || x.contacts.find(k => k.tel).tel)}">${ic('phone', 18)}Appeler</a>` : ''}
+        <button class="btn small ${isDone ? '' : 'primary'}" data-visite="${x.id}">${ic('check', 18)}${isDone ? 'Visite faite' : 'Visite faite'}</button>
         <span class="grow"></span>
-        <button class="btn small ghost" data-up="${x.id}" aria-label="Monter">▲</button>
-        <button class="btn small ghost" data-down="${x.id}" aria-label="Descendre">▼</button>
-        <button class="btn small ghost" data-rm="${x.id}" aria-label="Retirer">✕</button>
+        <button class="btn small ghost icon-only" data-up="${x.id}" aria-label="Monter">${ic('up', 20)}</button>
+        <button class="btn small ghost icon-only" data-down="${x.id}" aria-label="Descendre">${ic('down', 20)}</button>
+        <button class="btn small ghost icon-only" data-rm="${x.id}" aria-label="Retirer">${ic('close', 20)}</button>
       </div></div>`);
   });
   if (plan.lunch && !lunchShown) L_.push(lunchRow());
-  L_.push(`<div class="item home-row"><span class="num home">⌂</span><div class="main"><div class="t">Retour domicile</div><div class="s">🚗 ${dur(plan.retourMin)}</div></div><div class="end"><b>${min2hm(plan.finTour)}</b></div></div>`);
+  L_.push(`<div class="item home-row"><span class="num home">${ic('home', 18)}</span><div class="main"><div class="t">Retour domicile</div><div class="s">${dur(plan.retourMin)} de route</div></div><div class="end"><b>${min2hm(plan.finTour)}</b></div></div>`);
   if (!plan.rows.length && !doneRows.length) L_.push('<div class="empty">Aucun arrêt. Ajoute des clients.</div>');
   $('[data-list]', body).innerHTML = L_.join('');
 
@@ -168,10 +169,10 @@ async function drawJour(body, date, tour, ctx) {
     const x = stops[r.k].c; k++;
     pts.push([x.lat, x.lng]);
     const isDone = done.has(x.id);
-    L.marker([x.lat, x.lng], { icon: pin(isDone ? '#2E8B57' : typeColor(x.typeEtab), isDone ? '✓' : String(k)) }).addTo(map)
+    L.marker([x.lat, x.lng], { icon: pin(isDone ? '#1F7A4C' : typeColor(x.typeEtab), isDone ? '✔' : String(k)) }).addTo(map)
       .bindPopup(`<b>${esc(x.enseigne || x.nom)}</b><br>${esc(x.ville || '')}<br>${min2hm(r.start)}–${min2hm(r.end)}<br><a href="#/clients/${x.id}">Fiche</a> · <a href="${wazeUrl(x)}" target="_blank">Waze</a>`);
   });
-  for (const id of doneRows) { const x = idx().byId.get(id); if (x) L.marker([x.lat, x.lng], { icon: pin('#2E8B57', '✓', true) }).addTo(map); }
+  for (const id of doneRows) { const x = idx().byId.get(id); if (x) L.marker([x.lat, x.lng], { icon: pin('#1F7A4C', '', true) }).addTo(map); }
   pts.push([c.maison.lat, c.maison.lng]);
   const fallback = L.polyline(pts, { color: '#1B6DB5', weight: 3, opacity: .55, dashArray: '6 8' }).addTo(map);
   map.fitBounds(L.latLngBounds(pts).pad(0.12));
