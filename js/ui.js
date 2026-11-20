@@ -1,6 +1,6 @@
 // Composants partagés : carte, graphiques, sélecteur de client, compte rendu de visite, rappels, photos.
 import { S, put, del, kv, setKV } from './db.js';
-import { cfg, typeColor, TYPE_NAMES, RESULTATS, findCommune, zoneOf, situationOf, zoneColor, jourNom } from './ref.js';
+import { cfg, typeColor, TYPE_NAMES, RESULTATS, findCommune, zoneOf, situationOf, zoneColor, jourNom, livraisonNum, visiteDepuisLivraison } from './ref.js';
 import { ic } from './icons.js';
 import { $, $$, esc, uid, modal, toast, today, addDays, norm, debounce, dateFr, relDays, eur, telHref, hm2min } from './util.js';
 import { idx, clientName, retard } from './metrics.js';
@@ -237,31 +237,35 @@ export async function setTournee(date, t) {
 // Le jour de livraison est enregistré en toutes lettres (« mardi »), les autres en numéro (1 = lundi).
 const NOMS_J = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const COURTS = ['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-export function jourLivNum(c) {
-  const k = norm(c && c.jourLivraison || '').replace(/[^a-z]/g, '').slice(0, 3);
-  const i = NOMS_J.findIndex(n => n && n.startsWith(k));
-  return k && i > 0 ? i : null;
-}
+export const jourLivNum = c => livraisonNum(c);
 export const DAY_FIELDS = {
   jourVisite: { label: 'Jour de visite', vide: 'selon la zone du jour', cls: '' },
   jourLivraison: { label: 'Jour de livraison', vide: 'non renseigné', cls: 'green' },
   jourAppel: { label: 'Appel de la télévendeuse', vide: 'aucun', cls: 'amber' },
 };
 export const dayValue = (c, key) => key === 'jourLivraison' ? jourLivNum(c) : (+c[key] || null);
-export function dayPicker(key, value) {
-  return `<div class="daypick ${DAY_FIELDS[key].cls}" data-daypick="${key}" role="group" aria-label="${esc(DAY_FIELDS[key].label)}">${COURTS.slice(1).map((l, i) =>
-    `<button type="button" class="dp ${+value === i + 1 ? 'on' : ''}" data-n="${i + 1}" aria-pressed="${+value === i + 1}" title="${NOMS_J[i + 1]}">${l}</button>`).join('')}</div>`;
+// value : un numéro de jour, ou un tableau de jours si multi = true (plusieurs jours possibles)
+export function dayPicker(key, value, multi = false) {
+  const on = n => multi ? (value || []).includes(n) : +value === n;
+  return `<div class="daypick ${DAY_FIELDS[key].cls}" data-daypick="${key}" ${multi ? 'data-multi="1"' : ''} role="group" aria-label="${esc(DAY_FIELDS[key].label)}">${COURTS.slice(1).map((l, i) =>
+    `<button type="button" class="dp ${on(i + 1) ? 'on' : ''}" data-n="${i + 1}" aria-pressed="${on(i + 1)}" title="${NOMS_J[i + 1]}">${l}</button>`).join('')}</div>`;
 }
 // Champ complet : libellé + valeur + boutons. Un appui choisit le jour, un 2e appui sur le même l'efface.
 export function dayField(key, c) {
   const v = dayValue(c, key);
-  return `<div class="day-field" data-dayfield="${key}"><div class="lbl-like"><span>${esc(DAY_FIELDS[key].label)}</span><span class="val">${v ? NOMS_J[v] : `<span class="muted">${DAY_FIELDS[key].vide}</span>`}</span></div>${dayPicker(key, v)}</div>`;
+  const auto = key === 'jourVisite' && c.visiteAuto && v ? ' <span class="muted" style="font-weight:500">· veille de la livraison</span>' : '';
+  return `<div class="day-field" data-dayfield="${key}"><div class="lbl-like"><span>${esc(DAY_FIELDS[key].label)}</span><span class="val">${v ? NOMS_J[v] + auto : `<span class="muted">${DAY_FIELDS[key].vide}</span>`}</span></div>${dayPicker(key, v)}</div>`;
 }
 export function bindDayPickers(root, onChange) {
   root.addEventListener('click', e => {
     const b = e.target.closest('.daypick .dp'); if (!b) return;
     const box = b.closest('.daypick'), key = box.dataset.daypick;
     const was = b.classList.contains('on');
+    if (box.dataset.multi) { // plusieurs jours : chaque bouton s'allume ou s'éteint
+      b.classList.toggle('on', !was); b.setAttribute('aria-pressed', String(!was));
+      onChange && onChange(key, [...box.querySelectorAll('.dp.on')].map(x => +x.dataset.n), box);
+      return;
+    }
     box.querySelectorAll('.dp').forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); });
     if (!was) { b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); }
     const n = was ? null : +b.dataset.n;
@@ -273,7 +277,8 @@ export function bindDayPickers(root, onChange) {
 export const readDay = (root, key) => +(root.querySelector(`[data-daypick="${key}"] .dp.on`)?.dataset.n) || null;
 // Applique un jour sur la fiche (au bon format)
 export function setDay(c, key, n) {
-  if (key === 'jourLivraison') c.jourLivraison = n ? NOMS_J[n] : undefined;
+  if (key === 'jourLivraison') { c.jourLivraison = n ? NOMS_J[n] : undefined; visiteDepuisLivraison(c); }
+  else if (key === 'jourVisite') { c.jourVisite = n || undefined; c.visiteAuto = undefined; } // choisi à la main
   else c[key] = n || undefined;
 }
 

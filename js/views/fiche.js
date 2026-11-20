@@ -158,8 +158,10 @@ export async function render(main, ctx) {
 
   // Jours : enregistrés dès qu'on touche un bouton
   bindDayPickers($('[data-jours]', main), async (key, n) => {
+    const avant = c.jourVisite;
     setDay(c, key, n); await put('clients', c);
-    toast(n ? 'Jour enregistré' : 'Jour effacé');
+    toast(key === 'jourLivraison' && c.visiteAuto && c.jourVisite !== avant ? `Livraison enregistrée · visite le ${jourNom(c.jourVisite).toLowerCase()} (la veille)` : n ? 'Jour enregistré' : 'Jour effacé', 2600);
+    if (key === 'jourLivraison') ctx.refresh();
   });
 
   // Actions

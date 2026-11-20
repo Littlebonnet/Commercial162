@@ -1,6 +1,6 @@
 // Import Excel/CSV avec détection automatique des colonnes, modèle, export Excel, sauvegarde/restauration JSON.
 import { S, STORES, bulkPut, bulkDel, put, clear, getFiles, loadAll, setKV } from './db.js';
-import { typeOf, zoneOf, findCommune, appliquerRegles, codeTournee, cfg, saveCfg } from './ref.js';
+import { typeOf, zoneOf, findCommune, appliquerRegles, codeTournee, cfg, saveCfg, livraisonNum, visiteDepuisLivraison } from './ref.js';
 import { norm, uid, today, iso, downloadBlob, sum } from './util.js';
 import { geocode } from './route.js';
 
@@ -228,6 +228,10 @@ export function parseSituation(v) {
   if (/paie|impay|retard/.test(n)) return 'Paiement à surveiller';
   return null;
 }
+// « mardi, jeudi », « MAR/JEU », « lundi et vendredi » → [2, 4]…
+export function parseJours(v) {
+  return [...new Set(String(v ?? '').split(/[,;/+&]|\set\s/i).map(parseJour).filter(Boolean))].sort();
+}
 const yes = v => /^(1|o|oui|x|y|yes|vrai|true)$/i.test(String(v ?? '').trim());
 const str = v => (v instanceof Date ? iso(v) : String(v ?? '')).trim();
 
@@ -241,26 +245,33 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
     for (const r of rows) {
       const code = codeTournee(get(r, 'tournee')); if (!code) continue;
       const regle = { ...(regles[code] || {}) };
-      for (const k of ['jourLivraison', 'jourVisite', 'jourAppel']) { const j = parseJour(get(r, k)); if (j) regle[k] = j; }
+      // « mardi, jeudi » : la tournée est livrée plusieurs jours
+      const liv = parseJours(get(r, 'jourLivraison'));
+      if (liv.length) { regle.livraisons = [...new Set([...(regle.livraisons || []), ...liv])].sort(); delete regle.jourLivraison; }
+      for (const k of ['jourVisite', 'jourAppel']) { const jj = parseJour(get(r, k)); if (jj) regle[k] = jj; }
       const lib = str(get(r, 'libelle')); if (lib) regle.libelle = lib;
       regles[code] = regle; n++;
     }
     await saveCfg({ joursTournees: JSON.parse(JSON.stringify(regles)) });
-    // Les clients déjà présents sur ces tournées reçoivent les jours (en remplaçant ceux déjà saisis si demandé)
-    const maj = [];
+    // Clients déjà présents sur ces tournées : jour de livraison si la tournée n'en a qu'un, visite la veille
+    const maj = []; let aRepartir = 0;
     for (const c of S.clients) {
       const regle = c.tournee && regles[codeTournee(c.tournee)]; if (!regle) continue;
+      const liv = regle.livraisons || [];
       let chg = false;
-      for (const k of ['jourLivraison', 'jourVisite', 'jourAppel']) {
-        if (!regle[k]) continue;
-        const val = k === 'jourLivraison' ? NOMS[regle[k]] : regle[k];
-        if (c[k] && !opts.ecraser) continue;
-        if (c[k] !== val) { c[k] = val; chg = true; }
+      const actuel = livraisonNum(c);
+      if (liv.length === 1 && (!actuel || (opts.ecraser && actuel !== liv[0]))) { c.jourLivraison = NOMS[liv[0]]; chg = true; }
+      else if (liv.length > 1 && !actuel) aRepartir++;
+      if (visiteDepuisLivraison(c)) chg = true;
+      for (const k of ['jourVisite', 'jourAppel']) {
+        if (!regle[k] || (c[k] && !opts.ecraser)) continue;
+        if (c[k] !== regle[k]) { c[k] = regle[k]; if (k === 'jourVisite') c.visiteAuto = undefined; chg = true; }
       }
       if (chg) maj.push(c);
     }
     if (maj.length) await bulkPut('clients', maj);
-    return `${n} tournée${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}, ${maj.length} client${maj.length > 1 ? 's' : ''} mis à jour. Les clients importés plus tard sur ces tournées recevront aussi ces jours.`;
+    return `${n} tournée${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}, ${maj.length} client${maj.length > 1 ? 's' : ''} mis à jour (visite placée la veille de la livraison).`
+      + (aRepartir ? ` ${aRepartir} client${aRepartir > 1 ? 's' : ''} d'une tournée livrée plusieurs jours n'${aRepartir > 1 ? 'ont' : 'a'} pas encore de jour : Clients → Jours → Par tournée.` : '');
   }
 
   if (kind === 'catalogue') {
@@ -308,6 +319,7 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
       // Adresse principale vide mais complément rempli : on les échange
       if (!c.adresse && c.adresse2) { c.adresse = c.adresse2; delete c.adresse2; }
       if (c.tel) c.tel = telFr(c.tel);
+      if (c.jourLivraison) { const j = parseJour(c.jourLivraison); c.jourLivraison = j ? ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][j] : undefined; }
       if (c.cp && /^\d{4}$/.test(c.cp)) c.cp = '0' + c.cp;
       const tr = str(get(r, 'tournee')).toUpperCase();
       if (tr) { if (c.tournee && c.tournee !== tr) c.tags = (c.tags || []).filter(t => t !== 'Tournée ' + c.tournee); c.tournee = tr; c.tags = [...new Set([...(c.tags || []), 'Tournée ' + tr])]; }

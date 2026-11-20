@@ -135,19 +135,41 @@ export function communeDe(c) {
 }
 // Jours définis par commune (Jours des clients → Par commune) : complètent la fiche si elle n'a pas déjà ce jour
 const NOMS_JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+// Jour de livraison d'un client (enregistré en toutes lettres) → numéro 1 (lundi) … 6 (samedi)
+export function livraisonNum(c) {
+  const k = norm(c && c.jourLivraison || '').replace(/[^a-z]/g, '').slice(0, 3);
+  const i = NOMS_JOURS.findIndex(n => n && n.startsWith(k));
+  return k && i > 0 ? i : null;
+}
+export const nomJour = n => NOMS_JOURS[n] || '';
+// La veille de livraison (jour ouvré) : livré mercredi → visite mardi ; livré lundi ou samedi → visite vendredi
+export const veille = n => !n ? null : n === 1 || n === 6 ? 5 : n - 1;
+// Jours de livraison d'une tournée (plusieurs possibles ; ancien format : un seul jour)
+export const livraisonsTournee = r => (r && (r.livraisons || (r.jourLivraison ? [r.jourLivraison] : []))) || [];
+// Jour de visite déduit de la livraison, sauf si un jour de visite a été choisi à la main
+export function visiteDepuisLivraison(c) {
+  if (cfg().visiteVeille === false) return false;
+  if (c.jourVisite && !c.visiteAuto) return false;
+  const v = veille(livraisonNum(c)) || undefined;
+  if (c.jourVisite === v && !!c.visiteAuto === !!v) return false;
+  c.jourVisite = v; c.visiteAuto = !!v || undefined;
+  return true;
+}
 function appliquerRegle(r, c) {
   if (!r) return false;
   let chg = false;
-  if (r.jourVisite && !c.jourVisite) { c.jourVisite = r.jourVisite; chg = true; }
+  const liv = livraisonsTournee(r);
+  if (liv.length === 1 && !c.jourLivraison) { c.jourLivraison = NOMS_JOURS[liv[0]]; chg = true; }
+  if (visiteDepuisLivraison(c)) chg = true;
+  if (r.jourVisite && !c.jourVisite) { c.jourVisite = r.jourVisite; c.visiteAuto = undefined; chg = true; }
   if (r.jourAppel && !c.jourAppel) { c.jourAppel = r.jourAppel; chg = true; }
-  if (r.jourLivraison && !c.jourLivraison) { c.jourLivraison = NOMS_JOURS[r.jourLivraison]; chg = true; }
   return chg;
 }
 export const codeTournee = v => String(v || '').trim().toUpperCase();
 export function appliquerJoursCommune(c) { return appliquerRegle((cfg().joursCommunes || {})[communeDe(c)], c); }
 export function appliquerJoursTournee(c) { return c.tournee ? appliquerRegle((cfg().joursTournees || {})[codeTournee(c.tournee)], c) : false; }
 // La tournée (plus précise) passe avant la commune ; un jour déjà présent sur la fiche n'est jamais remplacé
-export function appliquerRegles(c) { const a = appliquerJoursTournee(c); const b = appliquerJoursCommune(c); return a || b; }
+export function appliquerRegles(c) { const a = appliquerJoursTournee(c); const b = appliquerJoursCommune(c); const v = visiteDepuisLivraison(c); return a || b || v; }
 
 // Situation du client (RAS par défaut). « exclu » : jamais proposé en tournée.
 export const SITUATIONS = [
@@ -179,6 +201,7 @@ export const DEFAULT_CFG = {
   joursZones: { 1: ['Rive droite'], 2: ['Rive gauche'], 3: ['Allevard'], 4: ['Méribel'], 5: ['Grenoble & loin', 'Rive droite'] },
   frequenceDefaut: 14,
   dureeDefaut: 30, // durée de visite si la fiche n'en indique pas
+  visiteVeille: true, // jour de visite = la veille du jour de livraison (sauf jour choisi à la main)
   alerteSansVisite: 30,
   alerteSansCommande: 45,
   alerteBaisse: 30,

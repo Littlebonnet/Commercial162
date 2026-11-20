@@ -209,7 +209,8 @@ function reglages(main, ctx) {
       <label class="field"><span>Visites max / jour</span><input type="number" name="maxVisites" value="${c.maxVisites}" min="1"></label>
       <label class="field"><span>Fréquence de visite par défaut (j)</span><input type="number" name="frequenceDefaut" value="${c.frequenceDefaut}" min="1"></label>
       <label class="field"><span>Durée de visite par défaut (min)</span><input type="number" name="dureeDefaut" value="${c.dureeDefaut || 30}" min="5" step="5"></label>
-      <label class="field"><span>Vitesse moyenne hors ligne (km/h)</span><input type="number" name="vitesseKmh" value="${c.vitesseKmh}" min="10"></label></div></div>
+      <label class="field"><span>Vitesse moyenne hors ligne (km/h)</span><input type="number" name="vitesseKmh" value="${c.vitesseKmh}" min="10"></label></div>
+      <label class="chk"><input type="checkbox" name="visiteVeille" ${c.visiteVeille === false ? '' : 'checked'}> Visiter chaque client la veille de son jour de livraison (livré mercredi → visite mardi), sauf jour de visite choisi à la main</label></div>
 
     <div class="card"><h2>${ic('map')}Zones par jour</h2><p class="muted small">Les clients des zones cochées sont proposés en priorité ce jour-là.</p>
       <div class="zones-days">${[1, 2, 3, 4, 5, 6].map(d => `<div class="zd"><b>${JOURS[d]}</b><div class="chips wrap-chips">${ZONE_NAMES.map(z => `<label class="chip-chk"><input type="checkbox" data-zd="${d}" value="${esc(z)}" ${(c.joursZones[d] || []).includes(z) ? 'checked' : ''}><span style="--zc:${zoneColor(z)}">${esc(z)}</span></label>`).join('')}</div></div>`).join('')}</div></div>
@@ -252,7 +253,7 @@ function reglages(main, ctx) {
     await saveCfg({
       nom: g('nom').trim(), telephone: g('telephone').trim(), email: g('email').trim(), maison: home,
       heureDebut: g('heureDebut'), heureFin: g('heureFin'), pause: { debut: g('pauseDebut'), fin: g('pauseFin'), duree: n('pauseDuree') },
-      maxVisites: n('maxVisites'), frequenceDefaut: n('frequenceDefaut'), dureeDefaut: n('dureeDefaut') || 30, vitesseKmh: n('vitesseKmh') || 45,
+      maxVisites: n('maxVisites'), frequenceDefaut: n('frequenceDefaut'), dureeDefaut: n('dureeDefaut') || 30, visiteVeille: form.elements.visiteVeille.checked, vitesseKmh: n('vitesseKmh') || 45,
       joursZones,
       alerteSansVisite: n('alerteSansVisite'), alerteFinContrat: n('alerteFinContrat'),
     });

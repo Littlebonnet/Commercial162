@@ -2,7 +2,7 @@
 // client par client, par commune ou par tournée (le jour choisi s'applique à tous les clients du groupe,
 // et il est retenu pour les clients importés ou créés ensuite).
 import { S, put, bulkPut } from '../db.js';
-import { ZONE_NAMES, cfg, saveCfg, jourNom, codeTournee } from '../ref.js';
+import { ZONE_NAMES, cfg, saveCfg, jourNom, codeTournee, livraisonsTournee, nomJour } from '../ref.js';
 import { $, $$, esc, norm, debounce, toast, modal } from '../util.js';
 import { dayPicker, dayValue, bindDayPickers, setDay, typeDot, communeDe } from '../ui.js';
 import { ic } from '../icons.js';
@@ -33,7 +33,7 @@ function choisir(titre, texte, options) {
 const INTRO = {
   client: 'Touche un jour pour le choisir, retouche-le pour l\'effacer. Tout est enregistré immédiatement.',
   commune: 'Choisis un jour pour une commune : il s\'applique à tous ses clients, et aux clients importés ou créés ensuite. Un client peut toujours avoir un autre jour sur sa fiche.',
-  tournee: 'Choisis le jour de livraison de chaque tournée (code GC, TP…) : il s\'applique à ses clients, et à ceux que tu importeras ensuite avec ce code. Tu peux créer une tournée avant l\'import.',
+  tournee: 'Choisis le ou les jours de livraison de chaque tournée (code GC, TP…). Chaque client est livré l\'un de ces jours, et sa visite est placée la veille (livré mercredi → visite mardi). Tu peux créer une tournée avant l\'import.',
 };
 
 export function render(main, ctx) {
@@ -71,7 +71,7 @@ export function render(main, ctx) {
   const clientRow = c => `<div class="jours-row" data-id="${c.id}">
       <div class="head">${typeDot(c.typeEtab)}<a href="#/clients/${c.id}">${esc(c.enseigne || c.nom)}</a><span class="muted small">${esc(c.ville || '')}${c.tournee ? ' · ' + esc(c.tournee) : ''}</span></div>
       <div class="jours-grid">
-        <div><div class="lbl-like">Visite</div>${dayPicker('jourVisite', dayValue(c, 'jourVisite'))}</div>
+        <div><div class="lbl-like">Visite${c.visiteAuto && c.jourVisite ? ' <span class="muted" style="font-weight:500">· veille de la livraison</span>' : ''}</div>${dayPicker('jourVisite', dayValue(c, 'jourVisite'))}</div>
         <div><div class="lbl-like">Livraison</div>${dayPicker('jourLivraison', dayValue(c, 'jourLivraison'))}</div>
         ${F.tele ? `<div><div class="lbl-like">Télévente</div>${dayPicker('jourAppel', dayValue(c, 'jourAppel'))}</div>` : ''}
       </div></div>`;
@@ -102,11 +102,31 @@ export function render(main, ctx) {
     if (!set.size) return { v: null, txt: 'aucun client' };
     return { v: null, txt: `${cl.length - sans}/${cl.length} clients, ${set.size > 1 ? 'jours différents' : 'les autres sans jour'}` };
   };
+  const etatTournee = (nom, cl) => {
+    const jours = livraisonsTournee((cfg().joursTournees || {})[nom]);
+    const par = new Map(); let sans = 0, autre = 0;
+    for (const c of cl) { const d = dayValue(c, 'jourLivraison'); if (!d) sans++; else if (!jours.includes(d)) autre++; else par.set(d, (par.get(d) || 0) + 1); }
+    const morceaux = [];
+    if (!jours.length) morceaux.push('aucun jour choisi');
+    else if (!cl.length) morceaux.push('retenu pour les futurs clients');
+    else if (jours.length > 1) morceaux.push(...jours.filter(d => par.get(d)).map(d => `${par.get(d)} le ${nomJour(d)}`));
+    else if (par.get(jours[0])) morceaux.push(`${par.get(jours[0])} client${par.get(jours[0]) > 1 ? 's' : ''} le ${nomJour(jours[0])}`);
+    if (sans && jours.length) morceaux.push(`<b>${sans} à répartir</b>`);
+    if (autre) morceaux.push(`${autre} livré${autre > 1 ? 's' : ''} un autre jour`);
+    return { jours, txt: morceaux.join(' · '), aRepartir: jours.length > 1 ? sans : 0 };
+  };
   const groupRow = ({ nom, cl }) => {
     const lib = F.mode === 'tournee' ? (cfg().joursTournees || {})[nom]?.libelle : '';
     return `<div class="jours-row" data-groupe="${esc(nom)}">
       <div class="head"><b>${esc(nom)}</b>${lib ? `<span>${esc(lib)}</span>` : ''}<span class="muted small">${cl.length} client${cl.length > 1 ? 's' : ''}</span>${F.mode === 'tournee' && !cl.length ? `<button class="btn small ghost icon-only" data-del="${esc(nom)}" aria-label="Supprimer la tournée ${esc(nom)}" style="margin-left:auto">${ic('trash', 18)}</button>` : ''}</div>
-      <div class="jours-grid">${G.jours().map(k => { const e = etat(nom, cl, k); return `<div><div class="lbl-like">${LBL[k]} <span class="muted" style="font-weight:500">· ${esc(e.txt)}</span></div>${dayPicker(k, e.v)}</div>`; }).join('')}</div></div>`;
+      <div class="jours-grid">${G.jours().map(k => {
+        if (F.mode === 'tournee' && k === 'jourLivraison') {
+          const t = etatTournee(nom, cl);
+          return `<div style="grid-column:1/-1"><div class="lbl-like">Livraison <span class="muted" style="font-weight:500">· ${t.txt}</span></div>${dayPicker(k, t.jours, true)}
+            ${t.aRepartir ? `<button class="btn small" data-repartir="${esc(nom)}" style="margin-top:8px">${ic('calendar', 18)}Choisir le jour de ${t.aRepartir} client${t.aRepartir > 1 ? 's' : ''}</button>` : ''}</div>`;
+        }
+        const e = etat(nom, cl, k); return `<div><div class="lbl-like">${LBL[k]} <span class="muted" style="font-weight:500">· ${esc(e.txt)}</span></div>${dayPicker(k, e.v)}</div>`;
+      }).join('')}</div></div>`;
   };
 
   const more = () => {
@@ -136,11 +156,35 @@ export function render(main, ctx) {
     if (F.mode === 'client') {
       const c = S.clients.find(x => x.id === box.closest('[data-id]').dataset.id);
       setDay(c, key, n); await put('clients', c);
-      toast(`${c.enseigne || c.nom} : ${n ? 'enregistré' : 'effacé'}`, 1200);
+      toast(`${c.enseigne || c.nom} : ${n ? 'enregistré' : 'effacé'}${key === 'jourLivraison' && c.visiteAuto ? ' · visite la veille' : ''}`, 1600);
+      if (key === 'jourLivraison') { const el = box.closest('[data-id]'); el.outerHTML = clientRow(c); }
       return;
     }
     const nom = box.closest('[data-groupe]').dataset.groupe;
     const cl = groupes().find(x => x.nom === nom)?.cl || [];
+    if (box.dataset.multi) { // jours de livraison d'une tournée
+      const jours = n.slice().sort();
+      const regles = { ...(cfg().joursTournees || {}) };
+      const r = { ...(regles[nom] || {}) }; delete r.jourLivraison;
+      r.livraisons = jours.length ? jours : undefined; regles[nom] = r;
+      await saveCfg({ joursTournees: JSON.parse(JSON.stringify(regles)) });
+      let cibles = [];
+      if (jours.length === 1 && cl.length) {
+        cibles = cl.filter(c => !dayValue(c, 'jourLivraison'));
+        const autres = cl.filter(c => dayValue(c, 'jourLivraison') && dayValue(c, 'jourLivraison') !== jours[0]);
+        if (autres.length) {
+          const rep = await choisir(nom, `${autres.length} client${autres.length > 1 ? 's sont livrés' : ' est livré'} un autre jour. Les passer aussi au ${nomJour(jours[0])} ?`,
+            [{ label: 'Non, les laisser', v: 'non' }, { label: 'Oui, tous', v: 'oui', cls: 'primary' }]);
+          if (rep === 'oui') cibles = cibles.concat(autres);
+        }
+        for (const c of cibles) setDay(c, 'jourLivraison', jours[0]); // la visite passe à la veille
+        if (cibles.length) await bulkPut('clients', cibles);
+      }
+      toast(!jours.length ? `${nom} : jours effacés` : cibles.length ? `${nom} : ${cibles.length} client${cibles.length > 1 ? 's' : ''} livré${cibles.length > 1 ? 's' : ''} le ${nomJour(jours[0])}, visite la veille`
+        : jours.length > 1 ? `${nom} : livrée ${jours.map(nomJour).join(' et ')}` : `${nom} : livrée le ${nomJour(jours[0])}`, 2600);
+      redrawGroupe(nom);
+      return;
+    }
     let cibles = cl;
     if (n && cl.length) {
       const autres = cl.filter(c => dayValue(c, key) && dayValue(c, key) !== n);
@@ -178,6 +222,8 @@ export function render(main, ctx) {
     toast(`Tournée ${code} créée : choisis son jour de livraison`);
   };
   list.addEventListener('click', async e => {
+    const rp = e.target.closest('[data-repartir]');
+    if (rp) { F.mode = 'client'; F.q = rp.dataset.repartir; F.manque = 'livraison'; F.zone = ''; ctx.refresh(); return; }
     const b = e.target.closest('[data-del]'); if (!b) return;
     const code = b.dataset.del;
     if (!(await choisir(code, `Supprimer la tournée ${esc(code)} et ses jours retenus ?`, [{ label: 'Supprimer', v: 'ok', cls: 'danger' }]))) return;

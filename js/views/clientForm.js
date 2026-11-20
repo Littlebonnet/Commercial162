@@ -1,7 +1,7 @@
 // Création / modification d'une fiche, en rubriques claires :
 // identité, adresse, coordonnées, organisation (jours de visite et de télévente, créneaux), fermetures, situation, suivi.
 import { S, put } from '../db.js';
-import { cfg, TYPE_NAMES, ZONE_NAMES, ETAPES, zoneOf, findCommune, TYPES, SITUATIONS, JOURS_SEMAINE, appliquerRegles, codeTournee } from '../ref.js';
+import { cfg, TYPE_NAMES, ZONE_NAMES, ETAPES, zoneOf, findCommune, TYPES, SITUATIONS, JOURS_SEMAINE, appliquerRegles, codeTournee, veille, nomJour } from '../ref.js';
 import { $, $$, esc, uid, today, toast, JOURS, iso } from '../util.js';
 import { client } from '../metrics.js';
 import { geocode } from '../route.js';
@@ -117,7 +117,17 @@ export function render(main, ctx) {
   </form></div>`;
 
   const form = $('[data-form]', main);
-  bindDayPickers(form);
+  // Quand on choisit la livraison, la visite (si elle n'a pas été choisie à la main) passe à la veille
+  let visiteAuto = !!c.visiteAuto || !c.jourVisite;
+  bindDayPickers(form, (key, n, box) => {
+    if (key === 'jourVisite') { visiteAuto = false; return; }
+    if (key !== 'jourLivraison' || !visiteAuto || cfg().visiteVeille === false) return;
+    const v = veille(n);
+    const vb = form.querySelector('[data-daypick="jourVisite"]');
+    vb.querySelectorAll('.dp').forEach(x => { const on = +x.dataset.n === v; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+    const val = form.querySelector('[data-dayfield="jourVisite"] .val');
+    if (val) val.innerHTML = v ? `${nomJour(v)} <span class="muted" style="font-weight:500">· veille de la livraison</span>` : '<span class="muted">selon la zone du jour</span>';
+  });
   const f = n => form.elements[n];
   let coords = c.lat != null ? { lat: c.lat, lng: c.lng } : null;
   let lastAddr = [c.adresse, c.cp, c.ville].join('|');
@@ -151,7 +161,10 @@ export function render(main, ctx) {
       if (!c.enseigne) { toast('Le nom est obligatoire'); return; }
       if (c.situation === 'RAS') { c.situation = undefined; c.situationDate = undefined; }
       for (const n of ['frequence', 'duree']) c[n] = f(n).value === '' ? undefined : +f(n).value;
-      for (const k of ['jourVisite', 'jourLivraison', 'jourAppel']) setDay(c, k, readDay(form, k));
+      if (visiteAuto) { c.jourVisite = undefined; c.visiteAuto = true; } else setDay(c, 'jourVisite', readDay(form, 'jourVisite'));
+      setDay(c, 'jourLivraison', readDay(form, 'jourLivraison')); // recalcule la visite si elle est automatique
+      setDay(c, 'jourAppel', readDay(form, 'jourAppel'));
+      if (c.visiteAuto && !c.jourVisite) c.visiteAuto = undefined;
       if (c.tournee) c.tournee = codeTournee(c.tournee);
       if (!existing || codeTournee(existing.tournee) !== c.tournee) appliquerRegles(c); // jours de la tournée ou de la commune, sans écraser ceux saisis
       c.tags = f('tags').value.split(',').map(s => s.trim()).filter(Boolean);
