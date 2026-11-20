@@ -1,6 +1,6 @@
 // Import Excel/CSV avec détection automatique des colonnes, modèle, export Excel, sauvegarde/restauration JSON.
 import { S, STORES, bulkPut, bulkDel, put, clear, getFiles, loadAll, setKV } from './db.js';
-import { typeOf, zoneOf, findCommune } from './ref.js';
+import { typeOf, zoneOf, findCommune, appliquerJoursCommune } from './ref.js';
 import { norm, uid, today, iso, downloadBlob, sum } from './util.js';
 import { geocode } from './route.js';
 
@@ -283,6 +283,7 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
       const lat = toNum(get(r, 'lat')), lng = toNum(get(r, 'lng'));
       if (lat && lng) { c.lat = lat; c.lng = lng; }
       c.zone = zoneOf(c.ville);
+      appliquerJoursCommune(c); // jours définis pour la commune, si la fiche n'en a pas
       out.push(c);
       if (c.numClient) byNum.set(norm(c.numClient), c);
       byName.set(norm(c.enseigne) + '|' + norm(c.ville), c);

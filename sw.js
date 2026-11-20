@@ -2,7 +2,7 @@
 // - fichiers de l'app et bibliothèques : servis depuis le cache, mis à jour en arrière-plan
 // - tuiles de carte OpenStreetMap : mises en cache au fil de l'eau (limite 3000)
 // - API Adresse / OSRM : toujours en direct (l'app a un repli hors ligne)
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.0';
 const APP = 'app-' + VERSION;
 const TILES = 'tiles-v1';
 const CDN = [

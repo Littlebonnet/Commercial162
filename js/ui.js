@@ -278,3 +278,4 @@ export function setDay(c, key, n) {
 }
 
 export { zoneOf, findCommune, TYPE_NAMES, eur, dateFr, telHref };
+export { communeDe } from './ref.js';

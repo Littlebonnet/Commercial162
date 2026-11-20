@@ -126,6 +126,25 @@ export function zoneOf(ville, lat, lng) {
 }
 export const zoneColor = z => (ZONES[z] || { color: '#7A7A7A' }).color;
 
+// Commune d'un client, regroupée (« MERIBEL MOTTARET » → « Les Allues »)
+export function communeDe(c) {
+  const cm = findCommune(c && c.ville);
+  if (cm) return cm.nom;
+  const v = String((c && c.ville) || '').trim().replace(/\s+/g, ' ');
+  return v ? v.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()) : 'Sans commune';
+}
+// Jours définis par commune (Jours des clients → Par commune) : complètent la fiche si elle n'a pas déjà ce jour
+const NOMS_JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+export function appliquerJoursCommune(c) {
+  const r = (cfg().joursCommunes || {})[communeDe(c)];
+  if (!r) return false;
+  let chg = false;
+  if (r.jourVisite && !c.jourVisite) { c.jourVisite = r.jourVisite; chg = true; }
+  if (r.jourAppel && !c.jourAppel) { c.jourAppel = r.jourAppel; chg = true; }
+  if (r.jourLivraison && !c.jourLivraison) { c.jourLivraison = NOMS_JOURS[r.jourLivraison]; chg = true; }
+  return chg;
+}
+
 // Situation du client (RAS par défaut). « exclu » : jamais proposé en tournée.
 export const SITUATIONS = [
   { k: 'RAS', label: 'RAS', niveau: '' },
