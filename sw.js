@@ -2,7 +2,7 @@
 // - fichiers de l'app et bibliothèques : servis depuis le cache, mis à jour en arrière-plan
 // - tuiles de carte OpenStreetMap : mises en cache au fil de l'eau (limite 3000)
 // - API Adresse / OSRM : toujours en direct (l'app a un repli hors ligne)
-const VERSION = 'v1.4.0';
+const VERSION = 'v1.4.1';
 const APP = 'app-' + VERSION;
 const TILES = 'tiles-v1';
 const CDN = [
@@ -23,7 +23,7 @@ const LOCAL = [
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(APP);
-    await c.addAll(LOCAL);
+    await c.addAll(LOCAL.map(u => new Request(u, { cache: 'reload' })));
     await Promise.all(CDN.map(u => c.add(new Request(u, { mode: 'cors' })).catch(() => {})));
     self.skipWaiting();
   })());
@@ -62,7 +62,8 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
       const c = await caches.open(APP);
       const hit = await c.match(req, { ignoreSearch: url.origin === location.origin });
-      const net = fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => null);
+      const fresh = url.origin !== location.origin ? req : req.mode === 'navigate' ? new Request(req.url, { cache: 'no-cache' }) : new Request(req, { cache: 'no-cache' });
+      const net = fetch(fresh).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; }
       const r = await net;
       if (r) return r;
