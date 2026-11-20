@@ -37,7 +37,7 @@ export async function render(main, ctx) {
   if (mode === 'semaine') return renderSemaine(body, date, ctx);
 
   if (c.maison.adresse === '' && !S.kv.maisonAvertie) {
-    body.insertAdjacentHTML('beforebegin', `<div class="alert blue"><div class="grow">Le départ est fixé par défaut à Crolles. <a href="#/plus/reglages">Renseigne ton domicile dans Réglages</a> pour des horaires exacts.</div></div>`);
+    body.insertAdjacentHTML('beforebegin', `<div class="alert blue tb-alert small"><div class="grow">Départ par défaut : Crolles. <a href="#/plus/reglages">Indiquer mon domicile</a></div></div>`);
   }
   let tour = getTournee(date);
   if (!tour) {
@@ -86,31 +86,27 @@ async function drawJour(body, date, tour, ctx) {
   const hors = plan.rows.filter(r => r.hors);
   const doneRows = tour.order.filter(id => fromPos && done.has(id));
 
+  const srcTxt = (source === 'osrm' ? 'Temps de trajet réels' : 'Hors connexion : trajets estimés') + (tour.locked ? ' · ordre modifié à la main' : ' · ordre optimisé') + (fromPos ? ' · depuis ma position à ' + min2hm(tour.depart.heure) : '');
   body.innerHTML = `
-    <div class="tour-sum card">
-      <div class="sum-grid">
-        <div><div class="lbl">Visites</div><div class="v">${tour.order.length}</div></div>
-        <div><div class="lbl">Départ</div><div class="v">${min2hm(res.opt.debut)}</div></div>
-        <div><div class="lbl">Retour</div><div class="v ${plan.over > 0 ? 'down' : ''}">${min2hm(plan.finTour)}</div></div>
-        <div><div class="lbl">Route</div><div class="v">${dur(plan.travel)}</div><div class="lbl">${Math.round(plan.km)} km</div></div>
-        <div><div class="lbl">Attente</div><div class="v">${dur(plan.wait)}</div></div>
+    <div class="tour-bar card">
+      <div class="tb-stats" title="${esc(srcTxt)}">
+        <span class="tb-main"><b>${tour.order.length}</b> visite${tour.order.length > 1 ? 's' : ''}</span>
+        <span>${min2hm(res.opt.debut)} → <b class="${plan.over > 0 ? 'down' : ''}">${min2hm(plan.finTour)}</b></span>
+        <span>${ic('car', 16)}${dur(plan.travel)} · ${Math.round(plan.km)} km</span>
+        ${plan.wait > 4 ? `<span class="muted">attente ${dur(plan.wait)}</span>` : ''}
       </div>
-      ${hors.length ? `<div class="alert red" style="margin:12px 0 0">${ic('alert')}<div>${hors.length} visite(s) hors créneau : ${hors.map(r => esc(clientName(stops[r.k].c.id))).join(', ')}. Retire un client ou laisse réoptimiser.</div></div>` : ''}
-      ${plan.over > 0 ? `<div class="alert" style="margin:12px 0 0">${ic('clock')}<div>La journée dépasse l'heure de fin (${c.heureFin}) de ${dur(plan.over)}.</div></div>` : ''}
-      ${hors.length || plan.over > 10 ? '<button class="btn block" data-drop style="margin-top:10px">Reporter les visites impossibles (elles restent proposées les jours suivants)</button>' : ''}
-      <div class="muted small" style="margin-top:8px">${source === 'osrm' ? 'Temps de trajet réels (OSRM)' : 'Hors connexion : trajets estimés à vol d\'oiseau'}${tour.locked ? ' · ordre modifié à la main' : ' · ordre optimisé'}${fromPos ? ' · recalculé depuis ma position à ' + min2hm(tour.depart.heure) : ''}</div>
-      <div class="btn-row" style="margin-top:12px">
-        ${isToday ? `<button class="btn" data-late>${ic('clock', 20)}Je suis en retard</button>` : ''}
-        <button class="btn primary" data-add>${ic('plus', 20)}Ajouter</button>
-        <button class="btn" data-opt>${ic('refresh', 20)}Réoptimiser</button>
-        <button class="btn" data-repropose>${ic('star', 20)}Nouvelle proposition</button>
-        <button class="btn ghost" data-clear>Vider</button>
+      <div class="tb-actions">
+        ${isToday ? `<button class="btn small" data-late>${ic('clock', 18)}<span class="lbl">En retard</span></button>` : ''}
+        <button class="btn small primary" data-add>${ic('plus', 18)}<span class="lbl">Ajouter</span></button>
+        <button class="btn small" data-opt aria-label="Réoptimiser">${ic('refresh', 18)}<span class="lbl">Réoptimiser</span></button>
+        <button class="btn small icon-only" data-more aria-label="Autres actions">${ic('more', 18)}</button>
       </div>
     </div>
-    <div class="split tour-split">
-      <div class="card list-card"><div class="list stops" data-list></div></div>
-      <div class="card map-card"><div class="map tall" data-map></div>
+    ${hors.length || plan.over > 0 ? `<div class="alert ${hors.length ? 'red' : ''} tb-alert">${ic(hors.length ? 'alert' : 'clock', 20)}<div class="grow">${hors.length ? `${hors.length} visite(s) hors créneau` : ''}${hors.length && plan.over > 0 ? ' · ' : ''}${plan.over > 0 ? `retour ${dur(plan.over)} après ${c.heureFin.replace(':', 'h')}` : ''}</div>${hors.length || plan.over > 10 ? '<button class="btn small" data-drop>Reporter</button>' : ''}</div>` : ''}
+    <div class="tour-split">
+      <div class="map-card"><div class="map tour-map" data-map></div>
         <div class="leg">${[...new Set(stops.map(s => s.c.typeEtab))].map(t => `<span><span class="dot" style="background:${typeColor(t)}"></span>${esc(t)}</span>`).join('')}</div></div>
+      <div class="card list-card"><div class="list stops" data-list></div></div>
     </div>`;
 
   // ---- Liste des arrêts ----
@@ -195,8 +191,15 @@ async function drawJour(body, date, tour, ctx) {
   $$('[data-down]', body).forEach(b => b.onclick = () => move(b.dataset.down, 1));
   $('[data-opt]', body).onclick = async () => { tour.locked = false; tour.optimise = false; await save(); toast('Tournée réoptimisée'); };
   $('[data-add]', body).onclick = () => ajouterClients(date, tour, ctx);
-  $('[data-clear]', body).onclick = async () => { if (await confirmBox('Vider la tournée de ce jour ?', 'Vider', true)) { await setTournee(date, { order: [], locked: false, optimise: true }); ctx.refresh(); } };
-  $('[data-repropose]', body).onclick = async () => {
+  const vider = async () => { if (await confirmBox('Vider la tournée de ce jour ?', 'Vider', true)) { await setTournee(date, { order: [], locked: false, optimise: true }); ctx.refresh(); } };
+  $('[data-more]', body).onclick = () => modal({
+    title: 'Autres actions',
+    body: `<p class="muted small" style="margin-top:0">${esc(srcTxt)}</p><div class="list">
+      <button class="item btn-item" data-a="prop">${ic('star')}<div class="main"><div class="t">Nouvelle proposition</div><div class="s">Recalcule les clients à voir ce jour-là</div></div></button>
+      <button class="item btn-item" data-a="vider">${ic('trash')}<div class="main"><div class="t">Vider la tournée</div><div class="s">Retire tous les arrêts de ce jour</div></div></button></div>`,
+    onOpen(b, close) { b.onclick = e => { const a = e.target.closest('[data-a]'); if (!a) return; close(); (a.dataset.a === 'prop' ? repropose : vider)(); }; },
+  });
+  const repropose = async () => {
     if (!(await confirmBox('Remplacer la tournée par une nouvelle proposition automatique ?', 'Proposer'))) return;
     await setTournee(date, null); ctx.refresh();
   };

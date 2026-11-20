@@ -11,7 +11,7 @@ const F = { q: '', statut: 'tous', zone: '', type: '', tag: '', situation: '', j
 
 export function render(main, ctx) {
   ctx.title('Clients');
-  ctx.actions([{ icon: 'plus', label: 'Nouveau', cls: 'primary', href: '#/clients/nouveau' }]);
+  ctx.actions([{ icon: 'calendar', label: 'Jours', href: '#/clients/jours' }, { icon: 'plus', label: 'Nouveau', cls: 'primary', href: '#/clients/nouveau' }]);
   const tags = [...new Set(S.clients.flatMap(c => c.tags || []))].sort((a, b) => a.localeCompare(b));
   const I = idx();
   const from12 = addDays(today(), -365);

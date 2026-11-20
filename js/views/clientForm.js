@@ -5,7 +5,7 @@ import { cfg, TYPE_NAMES, ZONE_NAMES, ETAPES, zoneOf, findCommune, TYPES, SITUAT
 import { $, $$, esc, uid, today, toast, JOURS, iso } from '../util.js';
 import { client } from '../metrics.js';
 import { geocode } from '../route.js';
-import { addressAutocomplete, creneauxEditor, readCreneaux, creneauxTxt } from '../ui.js';
+import { addressAutocomplete, creneauxEditor, readCreneaux, creneauxTxt, dayField, bindDayPickers, readDay, setDay } from '../ui.js';
 import { ic } from '../icons.js';
 
 // Anciens « mois de fermeture » → périodes annuelles (mois consécutifs regroupés)
@@ -28,7 +28,6 @@ const perRow = (p = {}) => `<div class="per">
   <div class="row"><label class="chk"><input type="checkbox" data-annuel ${p.annuel ? 'checked' : ''}> Chaque année</label>
   <button type="button" class="btn small ghost icon-only" data-rm-per aria-label="Supprimer la période">${ic('trash', 20)}</button></div></div>`;
 
-const jourSelect = (name, val, vide) => `<select name="${name}"><option value="">${vide}</option>${JOURS_SEMAINE.map(([n, l]) => `<option value="${n}" ${+val === n ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
 
 export function render(main, ctx) {
   const id = ctx.params[0];
@@ -73,10 +72,10 @@ export function render(main, ctx) {
     </div>
 
     <div class="card"><h2>${ic('calendar')}Organisation</h2>
+      ${dayField('jourVisite', c)}
+      ${dayField('jourLivraison', c)}
+      ${dayField('jourAppel', c)}
       <div class="grid g3">
-        <label class="field"><span>Jour de visite</span>${jourSelect('jourVisite', c.jourVisite, 'Selon la zone du jour')}</label>
-        <label class="field"><span>Jour d'appel de la télévendeuse</span>${jourSelect('jourAppel', c.jourAppel, 'Aucun')}</label>
-        <label class="field"><span>Jour de livraison</span><select name="jourLivraison"><option value="">—</option>${JOURS.slice(1).concat(JOURS[0]).map(j => `<option ${c.jourLivraison === j ? 'selected' : ''}>${j}</option>`).join('')}</select></label>
         <label class="field"><span>Visite tous les (jours)</span><input name="frequence" type="number" min="1" value="${c.frequence ?? ''}" placeholder="${conf.frequenceDefaut}"></label>
         <label class="field"><span>Durée de visite (min)</span><input name="duree" type="number" min="5" step="5" value="${c.duree ?? ''}" placeholder="${conf.dureeDefaut || 30}"></label>
       </div>
@@ -118,6 +117,7 @@ export function render(main, ctx) {
   </form></div>`;
 
   const form = $('[data-form]', main);
+  bindDayPickers(form);
   const f = n => form.elements[n];
   let coords = c.lat != null ? { lat: c.lat, lng: c.lng } : null;
   let lastAddr = [c.adresse, c.cp, c.ville].join('|');
@@ -144,13 +144,14 @@ export function render(main, ctx) {
     e.preventDefault();
     const btn = $('button[type=submit]', form); btn.disabled = true;
     try {
-      for (const n of ['enseigne', 'nom', 'typeEtab', 'adresse', 'adresse2', 'cp', 'ville', 'zone', 'tel', 'email', 'numClient', 'tournee', 'siret', 'jourLivraison', 'finContrat', 'notes', 'prochainContact', 'depuis', 'etape', 'situation', 'situationDate', 'situationNote']) {
+      for (const n of ['enseigne', 'nom', 'typeEtab', 'adresse', 'adresse2', 'cp', 'ville', 'zone', 'tel', 'email', 'numClient', 'tournee', 'siret', 'finContrat', 'notes', 'prochainContact', 'depuis', 'etape', 'situation', 'situationDate', 'situationNote']) {
         const v = f(n) ? f(n).value.trim() : '';
         c[n] = v || undefined;
       }
       if (!c.enseigne) { toast('Le nom est obligatoire'); return; }
       if (c.situation === 'RAS') { c.situation = undefined; c.situationDate = undefined; }
-      for (const n of ['frequence', 'duree', 'jourVisite', 'jourAppel']) c[n] = f(n).value === '' ? undefined : +f(n).value;
+      for (const n of ['frequence', 'duree']) c[n] = f(n).value === '' ? undefined : +f(n).value;
+      for (const k of ['jourVisite', 'jourLivraison', 'jourAppel']) setDay(c, k, readDay(form, k));
       c.tags = f('tags').value.split(',').map(s => s.trim()).filter(Boolean);
       c.creneaux = readCreneaux(form);
       c.fermeture = $$('[data-ferm]', form).filter(x => x.checked).map(x => +x.value);

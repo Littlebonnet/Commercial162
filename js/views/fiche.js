@@ -4,7 +4,7 @@ import { ETAPES, situationOf, jourNom, typeColor } from '../ref.js';
 import { $, $$, esc, uid, eur, num, pct, today, addDays, dateFr, relDays, modal, toast, confirmBox, JOURS, telHref, MOIS, ym, iso } from '../util.js';
 import { idx, client, prochaineVisite, freqOf } from '../metrics.js';
 import { dureeVisite, creneaux, wazeUrl, gmapsUrl, periodeFermee } from '../route.js';
-import { makeMap, destroyMap, pin, visiteRapide, rappelForm, compressImage, typeDot, retardTag, resIcon, getTournee, setTournee, creneauxTxt, situationTag, zoneTag } from '../ui.js';
+import { dayField, bindDayPickers, setDay, makeMap, destroyMap, pin, visiteRapide, rappelForm, compressImage, typeDot, retardTag, resIcon, getTournee, setTournee, creneauxTxt, situationTag, zoneTag } from '../ui.js';
 import { ic } from '../icons.js';
 
 const mm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -71,10 +71,11 @@ export async function render(main, ctx) {
           ${row('Fin de contrat', c.finContrat ? dateFr(c.finContrat) + ' (' + relDays(c.finContrat) + ')' : '')}
           ${isProspect ? row('Prochain contact', c.prochainContact ? dateFr(c.prochainContact) : '') : ''}
         </dl></div>
+        <div class="info-group" data-jours><h3>Jours</h3>
+          <p class="hint" style="margin-top:0">Touche un jour pour le choisir, retouche-le pour l'effacer. C'est enregistré tout de suite.</p>
+          ${dayField('jourVisite', c)}${dayField('jourLivraison', c)}${dayField('jourAppel', c)}
+        </div>
         <div class="info-group"><h3>Organisation</h3><dl class="dl">
-          ${row('Jour de visite', c.jourVisite ? esc(jourNom(c.jourVisite)) : '<span class="muted">selon la zone du jour</span>')}
-          ${row('Appel télévente', c.jourAppel ? esc(jourNom(c.jourAppel)) : '<span class="muted">aucun</span>')}
-          ${row('Livraison', esc(c.jourLivraison || ''))}
           ${row('Fréquence', `tous les ${freqOf(c)} jours`)}
           ${row('Heures de passage', esc(creneauxTxt(creneaux(c).map(([a, b]) => [mm(a), mm(b)]))) + (c.creneaux && c.creneaux.length ? '' : ' <span class="muted small">(aucun créneau : toute la journée)</span>'))}
           ${row('Durée de visite', dureeVisite(c) + ' min')}
@@ -154,6 +155,12 @@ export async function render(main, ctx) {
     }
     toast('Fichier ajouté'); drawFiles();
   };
+
+  // Jours : enregistrés dès qu'on touche un bouton
+  bindDayPickers($('[data-jours]', main), async (key, n) => {
+    setDay(c, key, n); await put('clients', c);
+    toast(n ? 'Jour enregistré' : 'Jour effacé');
+  });
 
   // Actions
   const sel = $('[data-etape]', main);

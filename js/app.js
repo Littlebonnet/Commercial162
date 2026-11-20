@@ -10,6 +10,7 @@ import * as clientsV from './views/clients.js';
 import * as fiche from './views/fiche.js';
 import * as clientForm from './views/clientForm.js';
 import * as plus from './views/plus.js';
+import * as jours from './views/jours.js';
 
 // [motif, module, onglet, profondeur]
 const ROUTES = [
@@ -17,6 +18,7 @@ const ROUTES = [
   [/^tournee(?:\/(\d{4}-\d{2}-\d{2}))?$/, tournee, 'tournee'],
   [/^clients$/, clientsV, 'clients'],
   [/^clients\/nouveau$/, clientForm, 'clients', true],
+  [/^clients\/jours$/, jours, 'clients', true],
   [/^clients\/([\w-]+)\/modifier$/, clientForm, 'clients', true],
   [/^clients\/([\w-]+)$/, fiche, 'clients', true],
   [/^plus(?:\/([\w-]+))?$/, plus, 'plus'],
