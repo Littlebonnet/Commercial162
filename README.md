@@ -1,6 +1,6 @@
 # Tournée Alpagel
 
-Application de suivi commercial pour iPad et iPhone : fiches clients, tournées GPS optimisées, comptes rendus de visite, chiffres N vs N-1, objectifs et prime. Les commandes se passent dans le logiciel de l'entreprise : l'app ne les saisit pas.
+Application de suivi commercial pour iPad et iPhone : fiches clients et tournées GPS optimisées, avec comptes rendus de visite et rappels. Les commandes et le chiffre d'affaires restent dans le logiciel de l'entreprise : l'app ne s'en occupe pas.
 
 - **Gratuite** : pas d'App Store ni de Mac, elle s'installe depuis Safari.
 - **Fonctionne hors connexion** : seuls le géocodage des adresses et le calcul des trajets réels utilisent Internet. Sans réseau, les trajets sont estimés.
@@ -59,37 +59,28 @@ Les données de l'iPad et de l'iPhone sont **séparées** : pour passer de l'un 
 
 - **Ton nom, téléphone, email** : ils apparaissent sur le rapport hebdo.
 - **Adresse du domicile** : point de départ et de retour des tournées (Crolles par défaut).
-- **Journée type** : départ, retour au plus tard, pause déjeuner (12 h – 13 h), nombre maximal de visites.
+- **Journée type** : départ, retour au plus tard, pause déjeuner (12 h – 13 h), nombre maximal de visites, durée de visite par défaut.
 - **Zones par jour** : lundi rive droite, mardi rive gauche, mercredi Allevard, jeudi Méribel, vendredi Grenoble et rattrapage (modifiable).
-- **Durée et créneaux par type d'établissement** : les créneaux évitent les heures de service. Chaque fiche peut avoir ses propres créneaux, sa durée, ses jours et **mois de fermeture** (saisonniers).
-- **Alertes, objectifs mensuels, prime** (paliers d'atteinte + % du CA ou de la marge), **thème** clair / sombre / automatique.
+- **Alertes** (pas vu depuis X jours, fin de contrat) et **affichage** clair / sombre.
+
+Les **créneaux de passage** et la durée de visite se règlent sur chaque fiche client (jusqu'à 4 créneaux). Un client sans créneau peut être vu à toute heure de ta journée.
 
 ### Essayer avec la démo
-**Plus → Réglages → Charger la démo** crée environ 60 clients dans tes communes, 87 produits, 18 mois de ventes, des visites, des prospects et des rappels. **Effacer la démo** les retire sans toucher à tes vraies données. Pense à l'effacer avant d'importer tes fichiers.
+**Plus → Réglages → Charger la démo** crée environ 60 clients dans tes communes, avec leurs créneaux, des visites, des prospects et des rappels. **Effacer la démo** les retire sans toucher à tes vraies données. Pense à l'effacer avant d'importer tes fichiers.
 
 ---
 
-## 4. Importer mes données (Plus → Import / export)
+## 4. Importer mes clients (Plus → Import et export)
 
-1. Touche **Modèle Excel** pour voir les colonnes reconnues (onglets Clients, Ventes, Catalogue). Tu n'es pas obligé de l'utiliser : l'application lit aussi tes propres fichiers.
+1. Touche **Modèle Excel** pour voir les colonnes reconnues. Tu n'es pas obligé de l'utiliser : l'application lit aussi ton propre fichier clients.
 2. Touche **Choisir un fichier** (.xlsx, .xls, .csv) depuis Fichiers / iCloud Drive / pièce jointe enregistrée.
-3. L'application **détecte le type de fichier** (clients, ventes ou catalogue), la ligne d'en-tête et **les colonnes** (« Code client », « N° client », « CA HT », « Libellé article », « CP »…). Vérifie la correspondance proposée, corrige si besoin, regarde l'aperçu puis **Importer**.
+3. L'application trouve la ligne d'en-tête et **les colonnes** (« N° client », « Nom client », « Adresse 2 », « Tournée », « Jour de visite », « Situation »…). Vérifie la correspondance proposée, corrige si besoin, regarde l'aperçu puis **Importer**.
 
-Ordre conseillé :
-
-| Étape | Fichier | Ce qui se passe |
-|---|---|---|
-| 1 | **Catalogue** (export de ton PDF de plus de 1000 références vers Excel) | Références, désignations, familles, prix de vente et d'achat. Ré-importer met à jour les prix. |
-| 2 | **Clients** | Fiches créées ou mises à jour (reconnues par n° client, sinon nom + commune). Les adresses sont géolocalisées et la zone de tournée est déduite de la commune. |
-| 3 | **Ventes / CA** | Lignes rattachées aux clients par n° client ou par nom. Accepte des lignes détaillées (date, produit, quantité, montant) ou un simple CA par client et par mois. Cocher « Remplacer les ventes déjà importées sur la période » évite les doublons quand tu ré-importes un mois. |
+Les fiches sont créées ou mises à jour (reconnues par n° client, sinon nom + commune), les adresses sont placées sur la carte et la zone de tournée est déduite de la commune.
 
 Astuces :
-- Les dates `15/11/2025`, `2025-11-15`, `11/2025`, `nov. 2025` et les montants `1 234,56 €` sont compris.
-- Une colonne « Mois de fermeture » (`10-4`, `nov, déc`) marque les saisonniers.
-- **Géolocaliser les fiches sans coordonnées** relance le géocodage (utile après un import hors connexion).
-- **Export Excel complet** : toutes tes données dans un classeur (clients, contacts, matériel, visites, ventes, catalogue, rappels).
-
-Le chiffre d'affaires et la marge viennent de l'import des ventes.
+- **Géolocaliser les fiches sans coordonnées** relance le placement sur la carte (utile après un import hors connexion).
+- **Export Excel** : clients, contacts, matériel, visites et rappels dans un classeur.
 
 ---
 
@@ -107,11 +98,10 @@ Les données vivent dans l'iPad. Si l'application est supprimée ou l'iPad perdu
 
 ## 6. Au quotidien
 
-- **Accueil** : tournée du jour, clients appelés aujourd'hui par la télévendeuse, CA du mois vs objectif et N-1, prime estimée et ce qu'il manque pour le palier suivant, relances dues, alertes (pas vu depuis X jours, ne commande plus, CA en baisse, fin de contrat), indicateurs d'activité.
+- **Accueil** : tournée du jour, relances dues, clients appelés aujourd'hui par la télévendeuse, alertes (pas vu depuis X jours, fin de contrat), activité des 4 dernières semaines.
 - **Tournée** : proposition automatique (jour de visite de chaque client sinon zone du jour, fréquence de visite, retards, rappels, prospects), heures d'arrivée, créneaux, attentes et pause. Ajoute, retire ou déplace des clients : la tournée se réoptimise. Par arrêt : **Waze**, **Appeler**, **Visite faite** (un appui sur le résultat suffit, note et rappel facultatifs). **Je suis en retard** recalcule le reste de la journée depuis ta position GPS ; **Reporter les visites impossibles** retire ce qui ne tient plus. Bouton **Semaine** : vue des 5 jours par zones.
-- **Clients** : recherche, filtres (zone, type, situation, jour de visite ou de télévente, étiquette, prospects, en retard), liste ou carte colorée par type d'établissement. La fiche regroupe la situation (RAS, redressement judiciaire…), le jour de visite et le jour d'appel de la télévendeuse, les créneaux spécifiques, les fermetures (jours de la semaine et périodes datées, éventuellement chaque année), les contacts, matériel prêté avec n° de série, photos et documents, historique, CA 12 mois et N-1, objectif, top 20 produits en quantités, produits arrêtés et suggestions.
-- **Chiffres** : N vs N-1 par mois, par zone, par type, par client, objectifs par client, top 20 global, nouveaux clients, activité.
-- **Plus** : prospection (à contacter → RDV pris → devis envoyé → gagné / perdu), rappels, catalogue, import/export, **rapport hebdo PDF** pour ton manager, sauvegarde, réglages.
+- **Clients** : recherche, filtres (zone, type, situation, jour de visite ou de télévente, étiquette, prospects, en retard), liste ou carte colorée par type d'établissement. La fiche regroupe la situation (RAS, redressement judiciaire…), le jour de visite et le jour d'appel de la télévendeuse, les créneaux spécifiques, les fermetures (jours de la semaine et périodes datées, éventuellement chaque année), les contacts, matériel prêté avec n° de série, photos et documents et l'historique des visites.
+- **Plus** : prospection (à contacter → RDV pris → devis envoyé → gagné / perdu), rappels, import/export des clients, **rapport hebdo PDF** des visites, sauvegarde, réglages.
 
 ---
 
@@ -120,7 +110,7 @@ Le petit logo en haut à gauche est un pictogramme provisoire. Pour mettre le lo
 
 ## 7. Pour le développement
 
-- HTML/CSS/JavaScript en modules ES, **sans étape de build**. Bibliothèques chargées depuis cdnjs (Leaflet 1.9.4, Chart.js 4.4.1, SheetJS 0.18.5, jsPDF 2.5.1 + autotable 3.8.2) et mises en cache par `sw.js`.
+- HTML/CSS/JavaScript en modules ES, **sans étape de build**. Bibliothèques chargées depuis cdnjs (Leaflet 1.9.4, SheetJS 0.18.5, jsPDF 2.5.1 + autotable 3.8.2) et mises en cache par `sw.js`.
 - Serveur local : la configuration `.claude/launch.json` sert le dossier sur <http://localhost:8162> sans cache. En local, le service worker est désactivé ; ajoute `?sw=1` à l'adresse pour tester le mode hors connexion.
 - Structure :
   - `js/app.js` : routeur par hash, thème, service worker

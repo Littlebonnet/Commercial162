@@ -4,7 +4,8 @@ import { typeOf, zoneOf, findCommune } from './ref.js';
 import { norm, uid, today, iso, downloadBlob, sum } from './util.js';
 import { geocode } from './route.js';
 
-export const KINDS = { clients: 'Clients / prospects', ventes: 'Ventes / chiffre d\'affaires', catalogue: 'Catalogue produits' };
+// L'app ne gère plus que les clients (les ventes et le catalogue ne sont plus importés)
+export const KINDS = { clients: 'Clients / prospects' };
 
 // Champs reconnus et synonymes d'en-têtes (comparés sans accents ni majuscules)
 export const FIELDS = {
@@ -93,7 +94,7 @@ export async function readFile(file) {
     const headers = (all[best] || []).map(h => String(h).trim());
     const rows = all.slice(best + 1).filter(r => r.some(v => String(v).trim() !== ''));
     // Score : nombre de colonnes reconnues (sert à ouvrir d'office le bon onglet, pas un « Lisez-moi »)
-    const score = rows.length ? Math.max(...Object.keys(FIELDS).map(k => scoreKind(k, headers))) : 0;
+    const score = rows.length ? scoreKind('clients', headers) : 0;
     return { name, headers, rows, headerRow: best, score };
   });
   return { sheets };
@@ -113,15 +114,7 @@ function scoreKind(kind, headers) {
   for (const fd of FIELDS[kind]) if (headers.some(h => matchField(fd, h) >= 2)) sc += fd.req ? 3 : 1;
   return sc;
 }
-export function detectKind(headers) {
-  const s = Object.fromEntries(Object.keys(FIELDS).map(k => [k, scoreKind(k, headers)]));
-  // Indices forts : montant + date → ventes ; prix sans client → catalogue ; adresse/ville → clients
-  const H = headers.map(nh).join('|');
-  if (/(^|\|)(ca|montant|total ht|ca ht|chiffre)/.test(H) && /(date|mois|periode)/.test(H)) s.ventes += 4;
-  if (/(adresse|ville|commune|code postal|telephone)/.test(H)) s.clients += 3;
-  if (/(prix|tarif)/.test(H) && !/(client)/.test(H)) s.catalogue += 3;
-  return Object.entries(s).sort((a, b) => b[1] - a[1])[0][0];
-}
+export function detectKind() { return 'clients'; }
 export function autoMap(kind, headers) {
   const map = {}, used = new Set();
   // On attribue d'abord les correspondances exactes, puis les approximatives
@@ -398,7 +391,7 @@ export function downloadModele() {
     ['15/11/2025', 'C0001', 'Le Chalet des Neiges', 'GL-VAN-25', 'Glace vanille bac 2,5 L', 6, 89.4, 31.2]];
   const ca = [['Référence', 'Désignation', 'Famille', 'Conditionnement', 'Prix de vente HT', 'Prix d\'achat HT', 'EAN', 'Nouveauté', 'Promo'],
     ['GL-VAN-25', 'Glace vanille bac 2,5 L', 'Glaces', 'carton 4 × 2,5 L', 14.9, 9.7, '3700000000000', 'non', 'non']];
-  for (const [n, d] of [['Clients', cl], ['Ventes', ve], ['Catalogue', ca]]) { const ws = XLSX.utils.aoa_to_sheet(d); ws['!cols'] = d[0].map(() => ({ wch: 18 })); XLSX.utils.book_append_sheet(wb, ws, n); }
+  for (const [n, d] of [['Clients', cl]]) { const ws = XLSX.utils.aoa_to_sheet(d); ws['!cols'] = d[0].map(() => ({ wch: 18 })); XLSX.utils.book_append_sheet(wb, ws, n); }
   XLSX.writeFile(wb, 'Modele import Tournee Alpagel.xlsx');
 }
 
@@ -410,8 +403,6 @@ export function exportExcel() {
   add('Contacts', S.clients.flatMap(c => (c.contacts || []).map(k => ({ Client: cName.get(c.id), Nom: k.nom, Fonction: k.role || '', Téléphone: k.tel || '', Email: k.email || '' }))));
   add('Matériel', S.clients.flatMap(c => (c.materiel || []).map(m => ({ Client: cName.get(c.id), Matériel: m.designation, 'N° de série': m.serie || '', Date: m.date || '', Note: m.note || '' }))));
   add('Visites', S.visites.slice().sort((a, b) => a.date.localeCompare(b.date)).map(v => ({ Date: v.date, Heure: v.heure || '', Client: cName.get(v.clientId) || '', Résultat: v.resultat || '', Note: v.note || '' })));
-  add('Ventes', S.ventes.map(l => ({ Date: l.date, Client: cName.get(l.clientId) || '', 'N° client': S.clients.find(c => c.id === l.clientId)?.numClient || '', Référence: l.ref, Désignation: l.designation, Quantité: l.qte, 'Montant HT': l.ht, Marge: l.marge, Source: l.source || '' })));
-  add('Catalogue', S.produits.map(p => ({ Référence: p.ref, Désignation: p.designation, Famille: p.famille || '', Conditionnement: p.cond || '', 'Prix de vente HT': p.prix ?? '', 'Prix d\'achat HT': p.achat ?? '', EAN: p.ean || '', Nouveauté: p.nouveaute ? 'oui' : '', Promo: p.promo ? 'oui' : '', Actif: p.actif === false ? 'non' : 'oui' })));
   add('Rappels', S.rappels.map(r => ({ Date: r.date, Client: cName.get(r.clientId) || '', Objet: r.texte || '', Fait: r.fait ? 'oui' : '' })));
   XLSX.writeFile(wb, `Export Tournee Alpagel ${today()}.xlsx`);
 }

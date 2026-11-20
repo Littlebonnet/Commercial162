@@ -155,6 +155,7 @@ export const DEFAULT_CFG = {
   // Zones fixes par jour (1 = lundi … 5 = vendredi). Pensé pour l'hiver : Méribel le jeudi.
   joursZones: { 1: ['Rive droite'], 2: ['Rive gauche'], 3: ['Allevard'], 4: ['Méribel'], 5: ['Grenoble & loin', 'Rive droite'] },
   frequenceDefaut: 14,
+  dureeDefaut: 30, // durée de visite si la fiche n'en indique pas
   alerteSansVisite: 30,
   alerteSansCommande: 45,
   alerteBaisse: 30,

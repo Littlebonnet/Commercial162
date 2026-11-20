@@ -3,7 +3,7 @@ import { S } from '../db.js';
 import { TYPE_NAMES, ZONE_NAMES, typeColor, SITUATIONS, JOURS_SEMAINE } from '../ref.js';
 import { ic } from '../icons.js';
 import { $, $$, esc, norm, debounce, eur, relDays, today, addDays } from '../util.js';
-import { idx, retard, caOf } from '../metrics.js';
+import { idx, retard } from '../metrics.js';
 import { makeMap, destroyMap, pin, clientLine, homeIcon } from '../ui.js';
 import { cfg } from '../ref.js';
 
@@ -15,8 +15,6 @@ export function render(main, ctx) {
   const tags = [...new Set(S.clients.flatMap(c => c.tags || []))].sort((a, b) => a.localeCompare(b));
   const I = idx();
   const from12 = addDays(today(), -365);
-  const ca12 = new Map();
-  for (const [id, ls] of I.ventesBy) ca12.set(id, caOf(ls.filter(l => l.date > from12)));
 
   main.innerHTML = `<div class="wrap">
     <div class="search"><div class="search-box">${ic('search', 20)}<input type="search" placeholder="Nom, commune, contact, n° client…" value="${esc(F.q)}" data-q></div></div>
@@ -27,7 +25,7 @@ export function render(main, ctx) {
       <select data-f="situation"><option value="">Toutes les situations</option><option value="alerte" ${F.situation === 'alerte' ? 'selected' : ''}>À surveiller (hors RAS)</option>${SITUATIONS.map(s => `<option value="${esc(s.k)}" ${F.situation === s.k ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
       <select data-f="jour"><option value="">Tous les jours</option>${JOURS_SEMAINE.map(([n, l]) => `<option value="v${n}" ${F.jour === 'v' + n ? 'selected' : ''}>Visite le ${l.toLowerCase()}</option>`).join('')}${JOURS_SEMAINE.map(([n, l]) => `<option value="a${n}" ${F.jour === 'a' + n ? 'selected' : ''}>Télévente le ${l.toLowerCase()}</option>`).join('')}</select>
       <select data-f="tag"><option value="">Toutes les étiquettes</option>${tags.map(z => `<option ${F.tag === z ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select>
-      <select data-f="tri">${[['nom', 'Tri : nom'], ['ville', 'Tri : ville'], ['retard', 'Tri : retard de visite'], ['ca', 'Tri : CA 12 mois'], ['recent', 'Tri : dernière visite']].map(([k, l]) => `<option value="${k}" ${F.tri === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select data-f="tri">${[['nom', 'Tri : nom'], ['ville', 'Tri : ville'], ['retard', 'Tri : retard de visite'], ['recent', 'Tri : dernière visite']].map(([k, l]) => `<option value="${k}" ${F.tri === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <div class="seg">${[['liste', 'Liste', 'list'], ['carte', 'Carte', 'map']].map(([k, l, i]) => `<button class="${F.vue === k ? 'on' : ''}" data-vue="${k}"><span class="row" style="gap:6px">${ic(i, 18)}${l}</span></button>`).join('')}</div>
     </div>
     <div class="muted small" data-count style="margin:8px 4px"></div>
@@ -62,7 +60,6 @@ export function render(main, ctx) {
       nom: (a, b) => nm(a).localeCompare(nm(b)),
       ville: (a, b) => (a.ville || '').localeCompare(b.ville || '') || nm(a).localeCompare(nm(b)),
       retard: (a, b) => retard(b) - retard(a),
-      ca: (a, b) => (ca12.get(b.id) || 0) - (ca12.get(a.id) || 0),
       recent: (a, b) => (I.lastVisit.get(b.id) || '').localeCompare(I.lastVisit.get(a.id) || ''),
     };
     return rows.sort(sorters[F.tri]);
@@ -91,7 +88,7 @@ export function render(main, ctx) {
     }
     if (map) { destroyMap(map); map = null; }
     const LIM = 400;
-    out.innerHTML = rows.length ? `<div class="card" style="padding:4px 12px"><div class="list">${rows.slice(0, LIM).map(c => clientLine(c, ca12.get(c.id) ? `<div class="small">${eur(ca12.get(c.id))}</div>` : '')).join('')}</div>
+    out.innerHTML = rows.length ? `<div class="card" style="padding:4px 12px"><div class="list">${rows.slice(0, LIM).map(c => clientLine(c)).join('')}</div>
       ${rows.length > LIM ? `<div class="empty">… ${rows.length - LIM} autres : affine la recherche</div>` : ''}</div>`
       : `<div class="card empty">Aucune fiche${S.clients.length ? ' pour ces filtres' : ''}.<br><br><a class="btn primary" href="#/clients/nouveau">Créer un client</a> <a class="btn" href="#/plus/import">Importer</a></div>`;
   };

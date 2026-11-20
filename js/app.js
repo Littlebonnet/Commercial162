@@ -9,7 +9,6 @@ import * as tournee from './views/tournee.js';
 import * as clientsV from './views/clients.js';
 import * as fiche from './views/fiche.js';
 import * as clientForm from './views/clientForm.js';
-import * as stats from './views/stats.js';
 import * as plus from './views/plus.js';
 
 // [motif, module, onglet, profondeur]
@@ -20,7 +19,6 @@ const ROUTES = [
   [/^clients\/nouveau$/, clientForm, 'clients', true],
   [/^clients\/([\w-]+)\/modifier$/, clientForm, 'clients', true],
   [/^clients\/([\w-]+)$/, fiche, 'clients', true],
-  [/^stats$/, stats, 'stats'],
   [/^plus(?:\/([\w-]+))?$/, plus, 'plus'],
 ];
 

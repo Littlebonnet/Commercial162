@@ -37,9 +37,7 @@ export function render(main, ctx) {
   ctx.title(existing ? 'Modifier la fiche' : (c.statut === 'prospect' ? 'Nouveau prospect' : 'Nouveau client'));
   const conf = cfg();
   const allTags = [...new Set(S.clients.flatMap(x => x.tags || []))].sort();
-  const defCr = conf.creneauxType[c.typeEtab] || TYPES.Autre.creneaux;
   const periodes = [...(c.periodesFermeture || []), ...moisVersPeriodes(c.moisFermes)];
-  const specifiques = !!(c.creneaux && c.creneaux.length);
 
   main.innerHTML = `<div class="wrap narrow"><form data-form autocomplete="off">
     <div class="card">
@@ -80,12 +78,11 @@ export function render(main, ctx) {
         <label class="field"><span>Jour d'appel de la télévendeuse</span>${jourSelect('jourAppel', c.jourAppel, 'Aucun')}</label>
         <label class="field"><span>Jour de livraison</span><select name="jourLivraison"><option value="">—</option>${JOURS.slice(1).concat(JOURS[0]).map(j => `<option ${c.jourLivraison === j ? 'selected' : ''}>${j}</option>`).join('')}</select></label>
         <label class="field"><span>Visite tous les (jours)</span><input name="frequence" type="number" min="1" value="${c.frequence ?? ''}" placeholder="${conf.frequenceDefaut}"></label>
-        <label class="field"><span>Durée de visite (min)</span><input name="duree" type="number" min="5" step="5" value="${c.duree ?? ''}" placeholder="${conf.dureesType[c.typeEtab] || 30}" data-duree></label>
+        <label class="field"><span>Durée de visite (min)</span><input name="duree" type="number" min="5" step="5" value="${c.duree ?? ''}" placeholder="${conf.dureeDefaut || 30}"></label>
       </div>
-      <div class="lbl-like">Heures de passage</div>
-      <div class="seg" style="margin-bottom:12px"><button type="button" data-cr="def" class="${specifiques ? '' : 'on'}">Horaires du type</button><button type="button" data-cr="spe" class="${specifiques ? 'on' : ''}">Créneaux spécifiques</button></div>
-      <p class="hint" data-cr-def ${specifiques ? 'hidden' : ''}>Horaires par défaut pour ce type : <b data-defcr>${esc(creneauxTxt(defCr))}</b></p>
-      <div data-cr-spe ${specifiques ? '' : 'hidden'}><p class="hint">Jusqu'à 4 créneaux, en dehors des heures de service.</p>${creneauxEditor(c.creneaux)}</div>
+      <div class="lbl-like">Créneaux de passage</div>
+      <p class="hint">Jusqu'à 4 créneaux où tu peux passer (en dehors du service). Sans créneau, le client peut être vu à toute heure de ta journée.</p>
+      ${creneauxEditor(c.creneaux)}
     </div>
 
     <div class="card"><h2>${ic('lock')}Fermetures</h2>
@@ -106,9 +103,8 @@ export function render(main, ctx) {
       <p class="hint">Liquidation judiciaire et fermeture définitive retirent le client des tournées et des alertes.</p>
     </div>
 
-    <div class="card"><h2>${ic('chart')}Suivi</h2>
+    <div class="card"><h2>${ic('list')}Suivi</h2>
       <div class="grid g3">
-        <label class="field"><span>Objectif de CA mensuel (€)</span><input name="objectifMensuel" type="number" min="0" step="50" value="${c.objectifMensuel ?? ''}"></label>
         <label class="field"><span>Fin de contrat</span><input name="finContrat" type="date" value="${esc(c.finContrat || '')}"></label>
         <label class="field"><span>Client depuis</span><input name="depuis" type="date" value="${esc(c.depuis || '')}"></label>
         <label class="field" data-prosp ${c.statut === 'prospect' ? '' : 'hidden'}><span>Prochain contact</span><input name="prochainContact" type="date" value="${esc(c.prochainContact || '')}"></label>
@@ -125,7 +121,6 @@ export function render(main, ctx) {
   const f = n => form.elements[n];
   let coords = c.lat != null ? { lat: c.lat, lng: c.lng } : null;
   let lastAddr = [c.adresse, c.cp, c.ville].join('|');
-  let modeCr = specifiques ? 'spe' : 'def';
   addressAutocomplete(f('adresse'), a => {
     f('cp').value = a.cp || ''; f('ville').value = a.ville || '';
     coords = { lat: a.lat, lng: a.lng }; lastAddr = [a.adresse, a.cp, a.ville].join('|');
@@ -133,18 +128,9 @@ export function render(main, ctx) {
     $('[data-geo]', main).textContent = 'Adresse trouvée : ' + a.label;
   });
   f('ville').addEventListener('change', () => { const cm = findCommune(f('ville').value); if (cm) { f('zone').value = cm.zone; if (!f('cp').value) f('cp').value = cm.cp; } });
-  f('typeEtab').addEventListener('change', () => {
-    const t = f('typeEtab').value;
-    $('[data-duree]', main).placeholder = conf.dureesType[t] || 30;
-    $('[data-defcr]', main).textContent = creneauxTxt(conf.creneauxType[t] || TYPES.Autre.creneaux);
-  });
   $$('[data-st]', main).forEach(b => b.onclick = () => {
     c.statut = b.dataset.st; $$('[data-st]', main).forEach(x => x.classList.toggle('on', x === b));
     $('[data-etape-f]', main).hidden = c.statut !== 'prospect'; $('[data-prosp]', main).hidden = c.statut !== 'prospect';
-  });
-  $$('[data-cr]', main).forEach(b => b.onclick = () => {
-    modeCr = b.dataset.cr; $$('[data-cr]', main).forEach(x => x.classList.toggle('on', x === b));
-    $('[data-cr-def]', main).hidden = modeCr !== 'def'; $('[data-cr-spe]', main).hidden = modeCr !== 'spe';
   });
   $('[data-add-per]', main).onclick = () => $('[data-periodes]', main).insertAdjacentHTML('beforeend', perRow());
   $('[data-periodes]', main).onclick = e => { const b = e.target.closest('[data-rm-per]'); if (b) b.closest('.per').remove(); };
@@ -164,9 +150,9 @@ export function render(main, ctx) {
       }
       if (!c.enseigne) { toast('Le nom est obligatoire'); return; }
       if (c.situation === 'RAS') { c.situation = undefined; c.situationDate = undefined; }
-      for (const n of ['frequence', 'duree', 'objectifMensuel', 'jourVisite', 'jourAppel']) c[n] = f(n).value === '' ? undefined : +f(n).value;
+      for (const n of ['frequence', 'duree', 'jourVisite', 'jourAppel']) c[n] = f(n).value === '' ? undefined : +f(n).value;
       c.tags = f('tags').value.split(',').map(s => s.trim()).filter(Boolean);
-      c.creneaux = modeCr === 'spe' ? readCreneaux(form) : [];
+      c.creneaux = readCreneaux(form);
       c.fermeture = $$('[data-ferm]', form).filter(x => x.checked).map(x => +x.value);
       c.periodesFermeture = $$('.per', form).map(r => ({ du: $('[data-du]', r).value, au: $('[data-au]', r).value, motif: $('[data-motif]', r).value.trim(), annuel: $('[data-annuel]', r).checked }))
         .filter(p => p.du && p.au).map(p => p.au < p.du && !p.annuel ? { ...p, du: p.au, au: p.du } : p);

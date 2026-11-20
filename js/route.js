@@ -70,10 +70,12 @@ export async function traceRoute(points) {
 
 // ---------- Paramètres de visite ----------
 export function dureeVisite(c) {
-  return +c.duree || cfg().dureesType[c.typeEtab] || (TYPES[c.typeEtab] || TYPES.Autre).duree;
+  return +c.duree || +cfg().dureeDefaut || 30;
 }
+// Créneaux du client ; s'il n'en a pas, il peut être vu à toute heure de la journée de travail
 export function creneaux(c) {
-  const src = c.creneaux && c.creneaux.length ? c.creneaux : (cfg().creneauxType[c.typeEtab] || TYPES.Autre.creneaux);
+  const conf = cfg();
+  const src = c.creneaux && c.creneaux.length ? c.creneaux : [[conf.heureDebut, conf.heureFin]];
   return src.map(([a, b]) => [hm2min(a), hm2min(b)]).filter(([a, b]) => a != null && b != null && b > a).sort((x, y) => x[0] - y[0]);
 }
 // Fermé ce jour-là : jour de fermeture hebdomadaire ou mois de fermeture (saisonniers)

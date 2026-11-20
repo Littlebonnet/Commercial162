@@ -45,18 +45,6 @@ export function homeIcon() {
   return L.divIcon({ className: '', iconSize: [34, 34], iconAnchor: [17, 17], html: `<div class="pin home">${ic('home', 18)}</div>` });
 }
 
-// ---------- Graphiques Chart.js (couleurs selon le thème) ----------
-export function chart(canvas, config) {
-  const text = css('--muted'), grid = css('--line');
-  Chart.defaults.color = text;
-  Chart.defaults.borderColor = grid;
-  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  Chart.defaults.font.size = 13;
-  config.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: 250 } }, config.options || {});
-  return new Chart(canvas, config);
-}
-export const fmtK = v => Math.abs(v) >= 1000 ? (v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' k€' : Math.round(v) + ' €';
-
 // ---------- Petits éléments ----------
 export const typeDot = t => `<span class="dot" style="background:${typeColor(t)}" title="${esc(t)}"></span>`;
 export function retardTag(c) {

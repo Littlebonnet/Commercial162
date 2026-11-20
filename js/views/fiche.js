@@ -2,9 +2,9 @@
 import { S, put, del, getFiles, getFile, bulkDel } from '../db.js';
 import { ETAPES, situationOf, jourNom, typeColor } from '../ref.js';
 import { $, $$, esc, uid, eur, num, pct, today, addDays, dateFr, relDays, modal, toast, confirmBox, JOURS, telHref, MOIS, ym, iso } from '../util.js';
-import { idx, client, caOf, margeOf, topProduits, suggestions, produitsArretes, prochaineVisite, freqOf, monthRange, thisMonth } from '../metrics.js';
+import { idx, client, prochaineVisite, freqOf } from '../metrics.js';
 import { dureeVisite, creneaux, wazeUrl, gmapsUrl, periodeFermee } from '../route.js';
-import { makeMap, destroyMap, pin, chart, fmtK, visiteRapide, rappelForm, compressImage, typeDot, retardTag, resIcon, getTournee, setTournee, creneauxTxt, situationTag, zoneTag } from '../ui.js';
+import { makeMap, destroyMap, pin, visiteRapide, rappelForm, compressImage, typeDot, retardTag, resIcon, getTournee, setTournee, creneauxTxt, situationTag, zoneTag } from '../ui.js';
 import { ic } from '../icons.js';
 
 const mm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -18,17 +18,8 @@ export async function render(main, ctx) {
   ctx.actions([{ label: 'Modifier', icon: 'edit', href: `#/clients/${c.id}/modifier` }]);
   const I = idx();
   const t = today();
-  const lines = I.ventesBy.get(c.id) || [];
-  const ca12 = caOf(lines.filter(l => l.date > addDays(t, -365)));
-  const ca12n1 = caOf(lines.filter(l => l.date <= addDays(t, -365) && l.date > addDays(t, -730)));
-  const mg12 = margeOf(lines.filter(l => l.date > addDays(t, -365)));
-  const [mFrom, mTo] = monthRange(thisMonth());
-  const caMois = caOf(lines.filter(l => l.date >= mFrom && l.date <= mTo));
-  const lv = I.lastVisit.get(c.id), lo = I.lastOrder.get(c.id);
+  const lv = I.lastVisit.get(c.id);
   const nv = prochaineVisite(c);
-  const top = topProduits({ clientId: c.id, limit: 20 });
-  const arr = produitsArretes(c.id);
-  const sug = suggestions(c.id);
   const visites = S.visites.filter(v => v.clientId === c.id).sort((a, b) => b.date.localeCompare(a.date));
   const rappels = S.rappels.filter(r => r.clientId === c.id).sort((a, b) => a.date.localeCompare(b.date));
   const tel = c.tel || (c.contacts || []).find(k => k.tel)?.tel;
@@ -61,12 +52,10 @@ export async function render(main, ctx) {
     </div>
   </div>
 
-  <div class="grid g4 mt">
-    <div class="card kpi"><div class="lbl">CA 12 mois</div><div class="val">${eur(ca12)}</div><div class="sub">N-1 ${eur(ca12n1)} ${ca12n1 ? `<span class="${ca12 >= ca12n1 ? 'up' : 'down'}">${ca12 >= ca12n1 ? '+' : '−'}${pct(Math.abs((ca12 - ca12n1) / ca12n1 * 100))}</span>` : ''}</div></div>
-    <div class="card kpi"><div class="lbl">Marge 12 mois</div><div class="val">${eur(mg12)}</div><div class="sub">${ca12 ? pct(mg12 / ca12 * 100) + ' du CA' : '—'}</div></div>
-    <div class="card kpi"><div class="lbl">Ce mois</div><div class="val">${eur(caMois)}</div><div class="sub">${c.objectifMensuel ? `objectif ${eur(c.objectifMensuel)} · ${pct(caMois / c.objectifMensuel * 100)}` : 'pas d\'objectif'}</div>
-      ${c.objectifMensuel ? `<div class="progress ${caMois >= c.objectifMensuel ? 'ok' : ''}"><div style="width:${Math.min(100, caMois / c.objectifMensuel * 100)}%"></div></div>` : ''}</div>
-    <div class="card kpi"><div class="lbl">Dernière visite</div><div class="val">${lv ? relDays(lv) : 'jamais'}</div><div class="sub">prochaine ${nv ? dateFr(nv) : 'à planifier'} · dernier achat ${lo ? relDays(lo) : '—'}</div></div>
+  <div class="grid g3 mt">
+    <div class="card kpi"><div class="lbl">Dernière visite</div><div class="val">${lv ? relDays(lv) : 'jamais'}</div><div class="sub">${lv ? dateFr(lv, true) : ''}</div></div>
+    <div class="card kpi"><div class="lbl">Prochaine visite</div><div class="val">${nv ? dateFr(nv) : 'à planifier'}</div><div class="sub">tous les ${freqOf(c)} jours</div></div>
+    <div class="card kpi"><div class="lbl">Visites enregistrées</div><div class="val">${visites.length}</div><div class="sub">${rappels.filter(r => !r.fait).length} rappel(s) en cours</div></div>
   </div>
 
   <div class="split mt">
@@ -87,7 +76,7 @@ export async function render(main, ctx) {
           ${row('Appel télévente', c.jourAppel ? esc(jourNom(c.jourAppel)) : '<span class="muted">aucun</span>')}
           ${row('Livraison', esc(c.jourLivraison || ''))}
           ${row('Fréquence', `tous les ${freqOf(c)} jours`)}
-          ${row('Heures de passage', esc(creneauxTxt(creneaux(c).map(([a, b]) => [mm(a), mm(b)]))) + (c.creneaux && c.creneaux.length ? '' : ' <span class="muted small">(horaires du type)</span>'))}
+          ${row('Heures de passage', esc(creneauxTxt(creneaux(c).map(([a, b]) => [mm(a), mm(b)]))) + (c.creneaux && c.creneaux.length ? '' : ' <span class="muted small">(aucun créneau : toute la journée)</span>'))}
           ${row('Durée de visite', dureeVisite(c) + ' min')}
         </dl></div>
         ${(c.fermeture || []).length || periodes.length || (c.moisFermes || []).length ? `<div class="info-group"><h3>Fermetures</h3><dl class="dl">
@@ -125,43 +114,16 @@ export async function render(main, ctx) {
     </div>
 
     <div class="col-stack">
-      <div class="card"><h2>${ic('chart')}CA mensuel <span class="right muted small">cette année et l'an dernier</span></h2><div class="chart-box"><canvas data-chart></canvas></div></div>
-
       <div class="card">
         <h2>${ic('list')}Historique des visites <span class="right muted small">${visites.length}</span></h2>
         <div class="timeline">${visites.slice(0, 30).map(v => `<div class="tl" data-v="${v.id}"><div class="when">${dateFr(v.date)}</div><div class="grow"><div class="what">${resIcon(v.resultat, 18)}${esc(v.resultat || 'Visite')}</div>${v.note ? `<div class="small muted">${esc(v.note)}</div>` : ''}</div></div>`).join('') || '<div class="empty small">Aucune visite enregistrée</div>'}</div>
       </div>
-
-      <div class="card">
-        <h2>${ic('star')}Top 20 produits <span class="right muted small">quantités · 12 mois</span></h2>
-        ${top.length ? `<div class="scroll-x"><table class="tbl"><thead><tr><th>Produit</th><th class="n">Qté</th><th class="n">CA</th><th class="n">Dernier</th></tr></thead><tbody>
-        ${top.map(p => `<tr><td>${esc(p.designation || p.ref)}<div class="muted small">${esc(p.ref)}</div></td><td class="n"><b>${num(p.qte)}</b></td><td class="n">${eur(p.ht)}</td><td class="n small">${dateFr(p.last)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty small">Pas encore d\'historique de ventes</div>'}
-      </div>
-
-      ${arr.length ? `<div class="card"><h2>${ic('alert')}Produits arrêtés <span class="right muted small">plus pris depuis 2 mois</span></h2><div class="list compact">${arr.slice(0, 10).map(p => `<div class="item"><div class="main"><div class="t">${esc(p.designation || p.ref)}</div><div class="s">${p.avant} achats avant · dernier ${dateFr(p.last)}</div></div></div>`).join('')}</div></div>` : ''}
-
-      ${sug.length ? `<div class="card"><h2>${ic('info')}À proposer <span class="right muted small">pris par les clients du même type</span></h2><div class="list compact">${sug.map(p => `<div class="item"><div class="main"><div class="t">${esc(p.designation)}</div><div class="s">${esc(p.ref)}</div></div><div class="end"><span class="tag green">${Math.round(p.taux)} %</span></div></div>`).join('')}</div></div>` : ''}
 
       <div class="btn-row">
         <button class="btn" data-archive>${c.archive ? 'Réactiver la fiche' : 'Archiver la fiche'}</button>
         <button class="btn ghost danger-t" data-delete>${ic('trash', 20)}Supprimer</button></div>
     </div>
   </div></div>`;
-
-  // Graphique 12 mois, N et N-1
-  const months = []; const k0 = ym(t);
-  for (let i = 11; i >= 0; i--) { const d = new Date(+k0.slice(0, 4), +k0.slice(5, 7) - 1 - i, 1); months.push(ym(iso(d))); }
-  const byM = new Map(); for (const l of lines) { const k = l.date.slice(0, 7); byM.set(k, (byM.get(k) || 0) + (l.ht || 0)); }
-  const prevK = k => `${+k.slice(0, 4) - 1}${k.slice(4)}`;
-  const ch = chart($('[data-chart]', main), {
-    type: 'bar',
-    data: { labels: months.map(k => MOIS[+k.slice(5) - 1]), datasets: [
-      { label: '12 derniers mois', data: months.map(k => byM.get(k) || 0), backgroundColor: '#1B6DB5', borderRadius: 4 },
-      { label: 'Un an avant', data: months.map(k => byM.get(prevK(k)) || 0), backgroundColor: 'rgba(140,152,165,.45)', borderRadius: 4 },
-    ] },
-    options: { scales: { y: { ticks: { callback: fmtK } } }, plugins: { tooltip: { callbacks: { label: x => x.dataset.label + ' : ' + eur(x.raw) } } } },
-  });
-  ctx.onLeave(() => ch.destroy());
 
   if (c.lat != null) {
     const map = makeMap($('[data-map]', main), { center: [c.lat, c.lng], zoom: 14 });

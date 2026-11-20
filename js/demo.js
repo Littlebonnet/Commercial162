@@ -271,24 +271,19 @@ export async function chargerDemo() {
   const conges = clients.filter(c => c.saison === 'annuel' && c.statut === 'client');
   if (conges[3]) conges[3].periodesFermeture = [{ du: addDays(t, 2), au: addDays(t, 12), annuel: false, motif: 'Congés' }];
   if (conges[7]) conges[7].periodesFermeture = [{ du: addDays(t, -3), au: addDays(t, 6), annuel: false, motif: 'Travaux' }];
-  for (const c of clients) delete c._size;
-  await bulkPut('produits', produits);
+  // Chaque client a ses propres créneaux et sa durée de visite (plus de valeurs par type dans les réglages)
+  for (const c of clients) {
+    const T = TYPES[c.typeEtab] || TYPES.Autre;
+    if (!c.creneaux || !c.creneaux.length) c.creneaux = T.creneaux.map(x => x.slice());
+    c.duree = c.duree || T.duree;
+    delete c._size;
+  }
+  // Seuls les clients, visites et rappels sont utiles (plus de ventes ni de catalogue dans l'app)
   await bulkPut('clients', clients);
-  for (let i = 0; i < ventes.length; i += 4000) await bulkPut('ventes', ventes.slice(i, i + 4000));
   await bulkPut('visites', visites);
   await bulkPut('rappels', rappels);
-
-  // Objectifs mensuels (N-1 + 7 %) et prime d'exemple, mémorisés pour pouvoir les retirer
-  const objectifs = { ...c0.objectifs }, added = [];
-  const caMois = new Map(); for (const v of ventes) { const k = v.date.slice(0, 7); caMois.set(k, (caMois.get(k) || 0) + v.ht); }
-  for (let i = -2; i <= 10; i++) {
-    const d = new Date(parseD(t).getFullYear(), parseD(t).getMonth() + i, 1); const k = ym(iso(d));
-    const kn1 = `${+k.slice(0, 4) - 1}${k.slice(4)}`;
-    if (objectifs[k] == null && caMois.get(kn1)) { objectifs[k] = Math.round(caMois.get(kn1) * 1.07 / 500) * 500; added.push(k); }
-  }
-  await setKV('demoBackup', { objectifs: added, prime: c0.prime });
-  const primeVide = !(c0.prime.paliers || []).some(p => +p.montant > 0) && !c0.prime.taux;
-  await saveCfg({ demo: true, objectifs, ...(primeVide ? { prime: { base: 'ca', taux: 0.5, paliers: [{ seuil: 90, montant: 150 }, { seuil: 100, montant: 350 }, { seuil: 110, montant: 600 }] } } : {}) });
+  await setKV('demoBackup', { objectifs: [] });
+  await saveCfg({ demo: true });
   await setKV('tournees', {});
 }
 
@@ -304,7 +299,7 @@ export async function effacerDemo() {
   const bk = kv('demoBackup', { objectifs: [] });
   const c = cfg();
   const objectifs = { ...c.objectifs }; for (const k of bk.objectifs || []) delete objectifs[k];
-  await saveCfg({ demo: false, objectifs, ...(bk.prime ? { prime: bk.prime } : {}) });
+  await saveCfg({ demo: false, objectifs });
   await setKV('tournees', {});
   await setKV('matCache2', []);
 }

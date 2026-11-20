@@ -2,7 +2,7 @@
 import { S, put } from '../db.js';
 import { cfg } from '../ref.js';
 import { $, $$, esc, eur, pct, today, dateFr, JOURS, MOIS_LONG, min2hm, dur, num } from '../util.js';
-import { moisEnCours, objectifMois, prime, rappelsDus, alertes, activite, nouveauxClients, clientName, clients } from '../metrics.js';
+import { rappelsDus, alertes, activite, clientName, clients } from '../metrics.js';
 import { getTournee, rappelForm, typeDot, situationTag } from '../ui.js';
 import { ic } from '../icons.js';
 
@@ -12,18 +12,12 @@ export function render(main, ctx) {
   const d = new Date();
   const t = today();
   const tour = getTournee(t);
-  const m = moisEnCours();
-  const obj = objectifMois();
-  const p = prime();
   const rap = rappelsDus();
   const al = alertes();
   const act = activite(28);
-  const nv = nouveauxClients();
   const dow = d.getDay();
   const tele = clients().filter(x => +x.jourAppel === dow && !x.archive);
   const faites = tour ? tour.order.filter(id => S.visites.some(v => v.clientId === id && v.date === t)).length : 0;
-  const evo = m.caN1 ? (m.ca - m.caN1) / m.caN1 * 100 : null;
-  const att = obj ? m.ca / obj * 100 : 0;
   const zonesJour = (c.joursZones[dow] || []).join(' + ');
   const empty = !S.clients.length;
 
@@ -49,23 +43,6 @@ export function render(main, ctx) {
           <a class="btn primary block" href="#/tournee">${faites ? 'Continuer la tournée' : 'Démarrer la tournée'}</a>`
         : `<p class="muted">Pas encore de tournée pour aujourd'hui.</p><a class="btn primary block" href="#/tournee">${ic('route', 20)}Préparer ma tournée</a>`}
       </div>
-
-      <div class="card">
-        <h2>${ic('euro')}Chiffre d'affaires du mois</h2>
-        <div class="row" style="align-items:flex-end;justify-content:space-between">
-          <div><div class="kval">${eur(m.ca)}</div><div class="muted small">marge ${eur(m.marge)}${m.ca ? ' · ' + pct(m.marge / m.ca * 100) : ''}</div></div>
-          <div class="right"><div class="muted small">l'an dernier à date</div><div style="font-weight:650">${eur(m.caN1)}${evo !== null ? ` <span class="${evo >= 0 ? 'up' : 'down'}">${evo >= 0 ? '+' : '−'}${pct(Math.abs(evo))}</span>` : ''}</div></div>
-        </div>
-        ${obj ? `<div class="progress ${att >= 100 ? 'ok' : ''}"><div style="width:${Math.min(100, att)}%"></div></div>
-          <div class="row small"><span class="grow">Objectif ${eur(obj)} · <b>${pct(att)}</b></span><span class="muted">reste ${eur(Math.max(0, obj - m.ca))}</span></div>`
-        : '<p class="muted small">Aucun objectif défini. <a href="#/plus/reglages">Le fixer dans Réglages</a></p>'}
-        <div class="hr"></div>
-        <div class="row" style="align-items:flex-start"><div class="grow"><div class="muted small">Prime estimée</div><div class="kval sm">${eur(p.total)}</div></div>
-          <div class="right small" style="max-width:60%">${p.next ? `Encore <b>${eur(Math.max(0, p.manque))}</b> pour le palier ${p.next.seuil} % (${eur(p.next.montant)})` : (obj ? '<span class="up">Palier maximum atteint</span>' : '')}<div class="muted" style="margin-top:4px">Nouveaux clients : <b>${nv.length}</b> / ${c.objectifNouveaux}</div></div></div>
-      </div>
-    </div>
-
-    <div class="grid g2 mt">
       <div class="card">
         <h2>${ic('bell')}Relances <span class="right"><button class="btn small" data-add-rap>${ic('plus', 18)}Rappel</button></span></h2>
         ${rap.length ? `<div class="list">${rap.slice(0, 10).map(r => `<div class="item" data-rap="${r.id}">
@@ -93,7 +70,7 @@ export function render(main, ctx) {
     <div class="section-title">Activité · 4 dernières semaines</div>
     <div class="grid g4">
       <div class="card kpi"><div class="lbl">Visites par jour</div><div class="val">${num(act.parJour)}</div><div class="sub">${act.visites} visites sur ${act.joursTravailles} jours</div></div>
-      <div class="card kpi"><div class="lbl">Visites avec commande</div><div class="val">${pct(act.tauxVisiteCommande)}</div><div class="sub">${act.commandes} visites</div></div>
+      <div class="card kpi"><div class="lbl">Relances en attente</div><div class="val">${rap.length}</div><div class="sub">rappels dus aujourd'hui ou avant</div></div>
       <div class="card kpi"><div class="lbl">Clients vus</div><div class="val">${act.clientsVus}</div><div class="sub">sur ${clients().length} clients</div></div>
       <div class="card kpi"><div class="lbl">Prospects transformés</div><div class="val">${act.transfo === null ? '—' : pct(act.transfo)}</div><div class="sub">${act.won} gagnés · ${act.lost} perdus</div></div>
     </div>

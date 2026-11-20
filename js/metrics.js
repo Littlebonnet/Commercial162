@@ -166,19 +166,10 @@ export function alertes() {
     if (x.situation === 'Fermé définitivement' || x.situation === 'Liquidation judiciaire') continue;
     const lv = I.lastVisit.get(x.id);
     const sinceV = lv ? daysBetween(lv, t) : null;
-    if (sinceV !== null && sinceV > c.alerteSansVisite) out.push({ id: x.id, niveau: 'amber', type: 'visite', txt: `Pas vu depuis ${sinceV} jours`, score: sinceV });
-    const lo = I.lastOrder.get(x.id);
-    if (lo) {
-      const sinceO = daysBetween(lo, t);
-      // Client saisonnier : s'il ne commandait pas non plus à la même période l'an dernier, ce n'est pas une alerte
-      const a1 = addDays(t, -410), b1 = addDays(t, -365);
-      const m = +t.slice(5, 7), mf = (x.moisFermes || []).map(Number);
-      const saisonnier = mf.includes(m) || mf.includes(m === 1 ? 12 : m - 1)
-        || ((I.firstOrder.get(x.id) || t) < a1 && !(I.ventesBy.get(x.id) || []).some(l => l.date >= a1 && l.date <= b1));
-      if (sinceO > c.alerteSansCommande && sinceO < 400 && !saisonnier) out.push({ id: x.id, niveau: 'red', type: 'commande', txt: `Ne commande plus depuis ${sinceO} jours`, score: sinceO + 50 });
-    }
-    const ev = evolutionClient(x.id);
-    if (ev.evo !== null && ev.evo <= -c.alerteBaisse && ev.r3n1 > 300) out.push({ id: x.id, niveau: 'red', type: 'baisse', txt: `CA 3 mois en baisse de ${Math.round(-ev.evo)} % vs N-1`, score: -ev.evo + 40 });
+    // Pas d'alerte « pas vu » pendant une fermeture (saison, congés)
+    const md = t.slice(5);
+    const ferme = (x.periodesFermeture || []).some(p => p.du && p.au && (p.annuel ? (p.du.slice(5) <= p.au.slice(5) ? md >= p.du.slice(5) && md <= p.au.slice(5) : md >= p.du.slice(5) || md <= p.au.slice(5)) : t >= p.du && t <= p.au));
+    if (!ferme && sinceV !== null && sinceV > c.alerteSansVisite) out.push({ id: x.id, niveau: 'amber', type: 'visite', txt: `Pas vu depuis ${sinceV} jours`, score: sinceV });
     if (x.finContrat) {
       const d = daysBetween(t, x.finContrat);
       if (d >= 0 && d <= c.alerteFinContrat) out.push({ id: x.id, niveau: 'blue', type: 'contrat', txt: `Fin de contrat ${d === 0 ? "aujourd'hui" : 'dans ' + d + ' j'}`, score: 100 - d });
