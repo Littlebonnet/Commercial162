@@ -135,8 +135,7 @@ export function communeDe(c) {
 }
 // Jours définis par commune (Jours des clients → Par commune) : complètent la fiche si elle n'a pas déjà ce jour
 const NOMS_JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-export function appliquerJoursCommune(c) {
-  const r = (cfg().joursCommunes || {})[communeDe(c)];
+function appliquerRegle(r, c) {
   if (!r) return false;
   let chg = false;
   if (r.jourVisite && !c.jourVisite) { c.jourVisite = r.jourVisite; chg = true; }
@@ -144,6 +143,11 @@ export function appliquerJoursCommune(c) {
   if (r.jourLivraison && !c.jourLivraison) { c.jourLivraison = NOMS_JOURS[r.jourLivraison]; chg = true; }
   return chg;
 }
+export const codeTournee = v => String(v || '').trim().toUpperCase();
+export function appliquerJoursCommune(c) { return appliquerRegle((cfg().joursCommunes || {})[communeDe(c)], c); }
+export function appliquerJoursTournee(c) { return c.tournee ? appliquerRegle((cfg().joursTournees || {})[codeTournee(c.tournee)], c) : false; }
+// La tournée (plus précise) passe avant la commune ; un jour déjà présent sur la fiche n'est jamais remplacé
+export function appliquerRegles(c) { const a = appliquerJoursTournee(c); const b = appliquerJoursCommune(c); return a || b; }
 
 // Situation du client (RAS par défaut). « exclu » : jamais proposé en tournée.
 export const SITUATIONS = [

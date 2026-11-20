@@ -1,7 +1,7 @@
 // Création / modification d'une fiche, en rubriques claires :
 // identité, adresse, coordonnées, organisation (jours de visite et de télévente, créneaux), fermetures, situation, suivi.
 import { S, put } from '../db.js';
-import { cfg, TYPE_NAMES, ZONE_NAMES, ETAPES, zoneOf, findCommune, TYPES, SITUATIONS, JOURS_SEMAINE, appliquerJoursCommune } from '../ref.js';
+import { cfg, TYPE_NAMES, ZONE_NAMES, ETAPES, zoneOf, findCommune, TYPES, SITUATIONS, JOURS_SEMAINE, appliquerRegles, codeTournee } from '../ref.js';
 import { $, $$, esc, uid, today, toast, JOURS, iso } from '../util.js';
 import { client } from '../metrics.js';
 import { geocode } from '../route.js';
@@ -152,7 +152,8 @@ export function render(main, ctx) {
       if (c.situation === 'RAS') { c.situation = undefined; c.situationDate = undefined; }
       for (const n of ['frequence', 'duree']) c[n] = f(n).value === '' ? undefined : +f(n).value;
       for (const k of ['jourVisite', 'jourLivraison', 'jourAppel']) setDay(c, k, readDay(form, k));
-      if (!existing) appliquerJoursCommune(c);
+      if (c.tournee) c.tournee = codeTournee(c.tournee);
+      if (!existing || codeTournee(existing.tournee) !== c.tournee) appliquerRegles(c); // jours de la tournée ou de la commune, sans écraser ceux saisis
       c.tags = f('tags').value.split(',').map(s => s.trim()).filter(Boolean);
       c.creneaux = readCreneaux(form);
       c.fermeture = $$('[data-ferm]', form).filter(x => x.checked).map(x => +x.value);

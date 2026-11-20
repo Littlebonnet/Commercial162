@@ -1,14 +1,21 @@
 // Import Excel/CSV avec détection automatique des colonnes, modèle, export Excel, sauvegarde/restauration JSON.
 import { S, STORES, bulkPut, bulkDel, put, clear, getFiles, loadAll, setKV } from './db.js';
-import { typeOf, zoneOf, findCommune, appliquerJoursCommune } from './ref.js';
+import { typeOf, zoneOf, findCommune, appliquerRegles, codeTournee, cfg, saveCfg } from './ref.js';
 import { norm, uid, today, iso, downloadBlob, sum } from './util.js';
 import { geocode } from './route.js';
 
 // L'app ne gère plus que les clients (les ventes et le catalogue ne sont plus importés)
-export const KINDS = { clients: 'Clients / prospects' };
+export const KINDS = { clients: 'Clients', tournees: 'Tournées (jours de livraison)' };
 
 // Champs reconnus et synonymes d'en-têtes (comparés sans accents ni majuscules)
 export const FIELDS = {
+  tournees: [
+    { k: 'tournee', label: 'Code tournée', req: true, syn: ['tournee', 'code tournee', 'n tournee', 'code', 'circuit', 'secteur'] },
+    { k: 'jourLivraison', label: 'Jour de livraison', syn: ['jour de livraison', 'jour livraison', 'livraison', 'jour', 'jour tournee'] },
+    { k: 'jourVisite', label: 'Jour de visite', syn: ['jour de visite', 'jour visite', 'visite'] },
+    { k: 'jourAppel', label: 'Jour d\'appel télévente', syn: ['jour d appel', 'jour appel', 'televente', 'jour televente', 'appel'] },
+    { k: 'libelle', label: 'Nom de la tournée', syn: ['libelle', 'nom', 'designation', 'nom tournee', 'libelle tournee', 'description'] },
+  ],
   clients: [
     { k: 'enseigne', label: 'Nom / enseigne', req: true, syn: ['enseigne', 'nom commercial', 'nom', 'client', 'etablissement', 'raison sociale', 'societe', 'denomination', 'libelle client', 'nom client'] },
     { k: 'nom', label: 'Raison sociale', syn: ['raison sociale', 'societe', 'denomination sociale'] },
@@ -94,7 +101,7 @@ export async function readFile(file) {
     const headers = (all[best] || []).map(h => String(h).trim());
     const rows = all.slice(best + 1).filter(r => r.some(v => String(v).trim() !== ''));
     // Score : nombre de colonnes reconnues (sert à ouvrir d'office le bon onglet, pas un « Lisez-moi »)
-    const score = rows.length ? scoreKind('clients', headers) : 0;
+    const score = rows.length ? Math.max(scoreKind('clients', headers), scoreKind('tournees', headers)) : 0;
     return { name, headers, rows, headerRow: best, score };
   });
   return { sheets };
@@ -114,7 +121,14 @@ function scoreKind(kind, headers) {
   for (const fd of FIELDS[kind]) if (headers.some(h => matchField(fd, h) >= 2)) sc += fd.req ? 3 : 1;
   return sc;
 }
-export function detectKind() { return 'clients'; }
+export function detectKind(headers = []) {
+  const fd = (kind, k) => FIELDS[kind].find(f => f.k === k);
+  const iT = headers.findIndex(h => matchField(fd('tournees', 'tournee'), h) >= 2);
+  const jour = ['jourLivraison', 'jourVisite', 'jourAppel'].some(k => headers.some((h, i) => i !== iT && matchField(fd('tournees', k), h) >= 2));
+  // Une colonne de nom ou de n° client (autre que celle de la tournée) signale un fichier clients
+  const client = headers.some((h, i) => i !== iT && (matchField(fd('clients', 'enseigne'), h) === 3 || matchField(fd('clients', 'numClient'), h) === 3 || matchField(fd('clients', 'ville'), h) === 3));
+  return iT >= 0 && jour && !client ? 'tournees' : 'clients';
+}
 export function autoMap(kind, headers) {
   const map = {}, used = new Set();
   // On attribue d'abord les correspondances exactes, puis les approximatives
@@ -220,6 +234,35 @@ const str = v => (v instanceof Date ? iso(v) : String(v ?? '')).trim();
 // ---------- Import ----------
 export async function importRows(kind, rows, map, opts = {}, progress = () => { }) {
   const get = (r, k) => map[k] == null ? '' : r[map[k]];
+  if (kind === 'tournees') {
+    const regles = { ...(cfg().joursTournees || {}) };
+    const NOMS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    let n = 0;
+    for (const r of rows) {
+      const code = codeTournee(get(r, 'tournee')); if (!code) continue;
+      const regle = { ...(regles[code] || {}) };
+      for (const k of ['jourLivraison', 'jourVisite', 'jourAppel']) { const j = parseJour(get(r, k)); if (j) regle[k] = j; }
+      const lib = str(get(r, 'libelle')); if (lib) regle.libelle = lib;
+      regles[code] = regle; n++;
+    }
+    await saveCfg({ joursTournees: JSON.parse(JSON.stringify(regles)) });
+    // Les clients déjà présents sur ces tournées reçoivent les jours (en remplaçant ceux déjà saisis si demandé)
+    const maj = [];
+    for (const c of S.clients) {
+      const regle = c.tournee && regles[codeTournee(c.tournee)]; if (!regle) continue;
+      let chg = false;
+      for (const k of ['jourLivraison', 'jourVisite', 'jourAppel']) {
+        if (!regle[k]) continue;
+        const val = k === 'jourLivraison' ? NOMS[regle[k]] : regle[k];
+        if (c[k] && !opts.ecraser) continue;
+        if (c[k] !== val) { c[k] = val; chg = true; }
+      }
+      if (chg) maj.push(c);
+    }
+    if (maj.length) await bulkPut('clients', maj);
+    return `${n} tournée${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}, ${maj.length} client${maj.length > 1 ? 's' : ''} mis à jour. Les clients importés plus tard sur ces tournées recevront aussi ces jours.`;
+  }
+
   if (kind === 'catalogue') {
     const out = [];
     const ex = new Map(S.produits.map(p => [p.ref, p]));
@@ -283,7 +326,7 @@ export async function importRows(kind, rows, map, opts = {}, progress = () => { 
       const lat = toNum(get(r, 'lat')), lng = toNum(get(r, 'lng'));
       if (lat && lng) { c.lat = lat; c.lng = lng; }
       c.zone = zoneOf(c.ville);
-      appliquerJoursCommune(c); // jours définis pour la commune, si la fiche n'en a pas
+      appliquerRegles(c); // jours définis pour la tournée ou la commune, si la fiche n'en a pas
       out.push(c);
       if (c.numClient) byNum.set(norm(c.numClient), c);
       byName.set(norm(c.enseigne) + '|' + norm(c.ville), c);
@@ -392,7 +435,8 @@ export function downloadModele() {
     ['15/11/2025', 'C0001', 'Le Chalet des Neiges', 'GL-VAN-25', 'Glace vanille bac 2,5 L', 6, 89.4, 31.2]];
   const ca = [['Référence', 'Désignation', 'Famille', 'Conditionnement', 'Prix de vente HT', 'Prix d\'achat HT', 'EAN', 'Nouveauté', 'Promo'],
     ['GL-VAN-25', 'Glace vanille bac 2,5 L', 'Glaces', 'carton 4 × 2,5 L', 14.9, 9.7, '3700000000000', 'non', 'non']];
-  for (const [n, d] of [['Clients', cl]]) { const ws = XLSX.utils.aoa_to_sheet(d); ws['!cols'] = d[0].map(() => ({ wch: 18 })); XLSX.utils.book_append_sheet(wb, ws, n); }
+  const tr = [['Code tournée', 'Nom de la tournée', 'Jour de livraison'], ['GC', 'Grésivaudan Crolles', 'mardi'], ['TP', 'Méribel', 'jeudi']];
+  for (const [n, d] of [['Clients', cl], ['Tournées', tr]]) { const ws = XLSX.utils.aoa_to_sheet(d); ws['!cols'] = d[0].map(() => ({ wch: 18 })); XLSX.utils.book_append_sheet(wb, ws, n); }
   XLSX.writeFile(wb, 'Modele import Tournee Alpagel.xlsx');
 }
 

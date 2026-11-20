@@ -13,7 +13,7 @@ import { chargerDemo, effacerDemo } from '../demo.js';
 const PAGES = {
   prospection: ['Prospection', 'star', 'Suivi des prospects, de « à contacter » à « gagné »'],
   rappels: ['Rappels', 'bell', 'Relances datées'],
-  import: ['Import et export', 'upload', 'Fichier clients Excel ou CSV'],
+  import: ['Import et export', 'upload', 'Fichiers clients et tournées (Excel ou CSV)'],
   rapport: ['Rapport hebdo', 'report', 'Visites de la semaine en PDF'],
   sauvegarde: ['Sauvegarde', 'cloud', 'Copie de toutes mes données'],
   reglages: ['Réglages', 'sliders', 'Domicile, horaires, zones par jour, affichage'],
@@ -85,11 +85,11 @@ function rappels(main, ctx) {
 function importPage(main, ctx) {
   main.innerHTML = `<div class="wrap narrow">
     <div class="card"><h2>${ic('upload')}Importer un fichier Excel ou CSV</h2>
-      <p class="muted">Ton fichier clients : l'application reconnaît les colonnes toute seule (nom, adresse, téléphone, jours de visite et d'appel, situation…). Tu pourras corriger avant de valider.</p>
+      <p class="muted">Fichier clients, ou fichier de tournées (code tournée + jour de livraison) : l'application reconnaît le type et les colonnes toute seule. Tu pourras corriger avant de valider.</p>
       <label class="btn primary block">Choisir un fichier (.xlsx, .xls, .csv)<input type="file" accept=".xlsx,.xls,.xlsm,.csv,.txt,.ods" hidden data-file></label>
       <div data-step style="margin-top:16px"></div></div>
     <div class="card" style="margin-top:16px"><h2>${ic('download')}Modèle et export</h2>
-      <p class="muted small">Le modèle contient les colonnes reconnues. L'export reprend tes clients, contacts, matériel, visites et rappels.</p>
+      <p class="muted small">Le modèle contient un onglet Clients et un onglet Tournées avec les colonnes reconnues. L'export reprend tes clients, contacts, matériel, visites et rappels.</p>
       <div class="btn-row"><button class="btn" data-modele>⬇ Modèle Excel</button><button class="btn" data-export>⬇ Export Excel complet</button></div></div>
     <div class="card" style="margin-top:16px"><h2>${ic('pin')}Géolocalisation</h2><p class="muted small" data-geo-txt></p><button class="btn" data-geo>Géolocaliser les fiches sans coordonnées</button></div>
   </div>`;
@@ -121,15 +121,17 @@ function mappingStep(step, book, ctx) {
     const opts = sel => `<option value="">— ignorer —</option>${sheet.headers.map((h, i) => `<option value="${i}" ${sel === i ? 'selected' : ''}>${esc(h || 'Colonne ' + (i + 1))}</option>`).join('')}`;
     step.innerHTML = `
       ${book.sheets.length > 1 ? `<label class="field"><span>Onglet</span><select data-sheet>${book.sheets.map((s, i) => `<option value="${i}" ${s === sheet ? 'selected' : ''}>${esc(s.name)} (${s.rows.length} lignes)</option>`).join('')}</select></label>` : ''}
-      
+      <div class="lbl-like">Type de fichier</div><div class="seg" style="margin-bottom:12px">${Object.entries(IO.KINDS).map(([k, l]) => `<button type="button" class="${kind === k ? 'on' : ''}" data-kind="${k}">${esc(l)}</button>`).join('')}</div>
       <p class="small muted">${sheet.rows.length} lignes · en-têtes ligne ${sheet.headerRow + 1}. Vérifie la correspondance des colonnes :</p>
       <div class="map-grid">${F.map(fd => `<label class="field"><span>${esc(fd.label)}${fd.req ? ' *' : ''}</span><select data-map="${fd.k}">${opts(map[fd.k])}</select></label>`).join('')}</div>
       ${kind === 'clients' ? '<label class="chk"><input type="checkbox" data-geocode checked> Géolocaliser les adresses (connexion nécessaire)</label>' : ''}
+      ${kind === 'tournees' ? '<p class="hint">Chaque client dont le code tournée correspond reçoit ces jours, y compris ceux importés plus tard.</p><label class="chk"><input type="checkbox" data-ecraser checked> Remplacer les jours déjà renseignés sur les fiches de ces tournées</label>' : ''}
       <h3>Aperçu</h3><div class="scroll-x"><table class="tbl small"><thead><tr>${F.filter(fd => map[fd.k] != null).map(fd => `<th>${esc(fd.label)}</th>`).join('')}</tr></thead>
       <tbody>${sheet.rows.slice(0, 5).map(r => `<tr>${F.filter(fd => map[fd.k] != null).map(fd => `<td>${esc(r[map[fd.k]] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
       <div class="btn-row end" style="margin-top:16px"><button class="btn primary" data-go>Importer ${sheet.rows.length} lignes</button></div><div data-prog class="muted small" style="margin-top:8px"></div>`;
     const s = $('[data-sheet]', step); if (s) s.onchange = () => { sheet = book.sheets[+s.value]; kind = IO.detectKind(sheet.headers); map = IO.autoMap(kind, sheet.headers); draw(); };
     $$('[data-map]', step).forEach(x => x.onchange = () => { map[x.dataset.map] = x.value === '' ? null : +x.value; });
+    $$('[data-kind]', step).forEach(b => b.onclick = () => { kind = b.dataset.kind; map = IO.autoMap(kind, sheet.headers); draw(); });
     $('[data-go]', step).onclick = async () => {
       const miss = IO.FIELDS[kind].filter(fd => fd.req && map[fd.k] == null && !(fd.alt && fd.alt.some(a => map[a] != null)));
       if (miss.length) { toast('Colonne obligatoire manquante : ' + miss.map(m => m.label).join(', '), 4000); return; }
@@ -137,9 +139,9 @@ function mappingStep(step, book, ctx) {
       const prog = $('[data-prog]', step);
       try {
         const r = await IO.importRows(kind, sheet.rows, map, {
-          replace: $('[data-replace]', step)?.checked, create: $('[data-create]', step)?.checked, geocode: $('[data-geocode]', step)?.checked,
+          geocode: $('[data-geocode]', step)?.checked, ecraser: $('[data-ecraser]', step)?.checked,
         }, txt => { prog.textContent = txt; });
-        step.innerHTML = `<div class="alert blue"><div><b>Import terminé ✓</b><div>${esc(r)}</div></div></div>`;
+        step.innerHTML = `<div class="alert blue"><div><b>Import terminé</b><div>${esc(r)}</div></div></div>`;
       } catch (err) { console.error(err); prog.innerHTML = `<span class="down">Erreur : ${esc(err.message)}</span>`; btn.disabled = false; }
     };
   };

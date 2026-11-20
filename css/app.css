@@ -319,6 +319,7 @@ tr.clickable:hover td { background: var(--hover); }
 .jours-grid { display: grid; gap: 8px 16px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 760px) { .jours-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .jours-grid .lbl-like { margin-bottom: 4px; font-size: 13px; }
+@media (max-width: 520px) { .seg-full .seg-lbl { font-size: 14px; } .seg-full button { padding: 0 8px; } .seg-full .ic { display: none; } }
 
 /* ---------- Accueil ---------- */
 .tour-card .kpis3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; padding: 6px 0 4px; }
